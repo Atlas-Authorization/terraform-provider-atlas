@@ -1,0 +1,11 @@
+# Compiled provider binary
+terraform-provider-atlas
+terraform-provider-atlas.exe
+dist/
+
+# Terraform working files (should never be committed)
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
