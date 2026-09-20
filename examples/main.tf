@@ -8,11 +8,11 @@ terraform {
 
 # The provider reads its credentials from the environment by default:
 #   export ATLAS_SECRET_KEY=sk_live_...
-#   export ATLAS_API_URL=https://api.atlas.dev   # optional; this is the default
+#   export ATLAS_API_URL=https://api.atlasauth.net   # optional; this is the default
 #
 # You may also set them inline (api_url shown; keep secret_key in the env):
 provider "atlas" {
-  api_url = "https://api.atlas.dev"
+  api_url = "https://api.atlasauth.net"
   # secret_key = "sk_live_..."  # prefer ATLAS_SECRET_KEY
 }
 

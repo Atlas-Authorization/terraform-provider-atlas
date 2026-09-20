@@ -31,7 +31,7 @@ preferred way to keep the secret key out of state and version control:
 
 ```sh
 export ATLAS_SECRET_KEY="sk_live_..."
-export ATLAS_API_URL="https://api.atlas.dev"   # optional; this is the default
+export ATLAS_API_URL="https://api.atlasauth.net"   # optional; this is the default
 ```
 
 Both can also be set inline in the provider block (`api_url`, `secret_key`),
@@ -40,7 +40,7 @@ marked sensitive. Every request is sent as `Authorization: Bearer <secret_key>`.
 
 ```hcl
 provider "atlas" {
-  # api_url    = "https://api.atlas.dev"   # or ATLAS_API_URL
+  # api_url    = "https://api.atlasauth.net"   # or ATLAS_API_URL
   # secret_key = "sk_live_..."             # or ATLAS_SECRET_KEY (preferred)
 }
 ```

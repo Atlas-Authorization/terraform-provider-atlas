@@ -23,12 +23,12 @@ import (
 )
 
 // DefaultAPIURL is the Atlas Backend API origin, overridable per provider.
-const DefaultAPIURL = "https://api.atlas.dev"
+const DefaultAPIURL = "https://api.atlasauth.net"
 
 // Client is the shared HTTP core every resource method calls.
 type Client struct {
 	// APIURL is the base URL of the instance's Backend API, e.g.
-	// https://api.atlas.dev. The /v1/... path is appended by each method;
+	// https://api.atlasauth.net. The /v1/... path is appended by each method;
 	// trailing slashes are tolerated.
 	APIURL string
 	// SecretKey is the instance secret key (sk_...). Sent as a bearer token on

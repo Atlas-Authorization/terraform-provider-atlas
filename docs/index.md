@@ -29,7 +29,7 @@ terraform {
 }
 
 provider "atlas" {
-  # api_url    = "https://api.atlas.dev"  # or ATLAS_API_URL (this is the default)
+  # api_url    = "https://api.atlasauth.net"  # or ATLAS_API_URL (this is the default)
   # secret_key = "sk_live_..."            # or ATLAS_SECRET_KEY (preferred)
 }
 ```
@@ -42,7 +42,7 @@ environment (preferred, keeps the key out of state and VCS):
 
 ```sh
 export ATLAS_SECRET_KEY="sk_live_..."
-export ATLAS_API_URL="https://api.atlas.dev"   # optional; this is the default
+export ATLAS_API_URL="https://api.atlasauth.net"   # optional; this is the default
 ```
 
 or inline in the provider block. Inline values take precedence over the
@@ -53,7 +53,7 @@ environment.
 ### Optional
 
 - `api_url` (String) — Base URL of the Atlas Backend API. Defaults to
-  `https://api.atlas.dev`, or `ATLAS_API_URL` when set.
+  `https://api.atlasauth.net`, or `ATLAS_API_URL` when set.
 - `secret_key` (String, Sensitive) — Atlas instance secret key (`sk_...`).
   Prefer `ATLAS_SECRET_KEY` so the key never lands in state or config.
 

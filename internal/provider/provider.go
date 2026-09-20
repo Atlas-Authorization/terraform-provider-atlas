@@ -45,7 +45,7 @@ func (p *AtlasProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp
 		MarkdownDescription: "Manage Atlas instance configuration as code via the secret-key Backend API.",
 		Attributes: map[string]schema.Attribute{
 			"api_url": schema.StringAttribute{
-				MarkdownDescription: "Base URL of the Atlas Backend API. Defaults to `https://api.atlas.dev`, " +
+				MarkdownDescription: "Base URL of the Atlas Backend API. Defaults to `https://api.atlasauth.net`, " +
 					"or the `ATLAS_API_URL` environment variable when set.",
 				Optional: true,
 			},
