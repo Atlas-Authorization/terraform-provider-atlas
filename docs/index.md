@@ -1,6 +1,6 @@
 # Atlas Provider
 
-Manage an [Atlas](https://atlas.dev) authentication instance as declarative
+Manage an [Atlas](https://atlasauth.net) authentication instance as declarative
 infrastructure-as-code. The provider wraps Atlas's secret-key **Backend API**
 (BAPI) — the instance-scoped `/v1/*` endpoints an `sk_` key can call — so your
 OAuth clients, SSO connections, resource servers, JWT templates, webhook
@@ -22,7 +22,7 @@ application and the Backend API, not to a plan/apply lifecycle.
 terraform {
   required_providers {
     atlas = {
-      source  = "atlas/atlas"
+      source  = "Atlas-Authorization/atlas"
       version = "~> 0.1"
     }
   }

@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     atlas = {
-      source = "atlas/atlas"
+      source = "Atlas-Authorization/atlas"
     }
   }
 }

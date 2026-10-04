@@ -1,6 +1,6 @@
 # Terraform Provider for Atlas
 
-Manage your [Atlas](https://atlas.dev) authentication instance as declarative
+Manage your [Atlas](https://atlasauth.net) authentication instance as declarative
 infrastructure-as-code. The provider wraps Atlas's secret-key **Backend API**
 (the instance-scoped `/v1/*` endpoints an `sk_` key can call), so your OAuth
 clients, SSO connections, resource servers, JWT templates, webhook endpoints,
@@ -60,7 +60,7 @@ go build -o terraform-provider-atlas .
 ```hcl
 provider_installation {
   dev_overrides {
-    "atlas/atlas" = "/absolute/path/to/terraform-provider-atlas"
+    "Atlas-Authorization/atlas" = "/absolute/path/to/terraform-provider-atlas"
   }
   direct {}
 }
@@ -73,7 +73,7 @@ With a dev override in place, skip `terraform init` and run `terraform plan` /
 terraform {
   required_providers {
     atlas = {
-      source  = "atlas/atlas"
+      source  = "Atlas-Authorization/atlas"
       version = "~> 0.1"
     }
   }

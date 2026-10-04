@@ -24,8 +24,8 @@ func main() {
 
 	opts := providerserver.ServeOpts{
 		// Matches the registry address customers put in their required_providers
-		// block: `source = "atlas/atlas"`.
-		Address: "registry.terraform.io/atlas/atlas",
+		// block: `source = "Atlas-Authorization/atlas"`.
+		Address: "registry.terraform.io/Atlas-Authorization/atlas",
 		Debug:   debug,
 	}
 
