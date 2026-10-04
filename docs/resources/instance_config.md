@@ -43,16 +43,19 @@ output "effective_auth_config" {
   `ionic://`) are accepted.
 - `auth_config` (String) — The instance auth configuration as a JSON object
   string (use `jsonencode(...)`). A partial patch merged into the current config
-  server-side; reads back the raw stored patch.
+  server-side; reads back the server-merged result. The provider suppresses the
+  diff when your config is a subset of that merged value, so a partial patch
+  does not thrash the plan.
 
 ### Read-Only
 
 - `id` (String) — The Atlas instance id (singleton key).
-- `auth_config_resolved` (String) — The effective auth config (every default
-  expanded) as a JSON object string, for inspecting the live auth behaviour.
+- `auth_config_resolved` (String) — The full effective configuration Atlas
+  resolved from your `auth_config` plus defaults (read-only).
 - `environment` (String) — The instance environment.
 - `publishable_key` (String) — The instance publishable key (`pk_...`).
-- `frontend_api_host` (String) — The instance Frontend API host.
+- `frontend_api_host` (String) — The instance Frontend API host (read-only;
+  auto-assigned by Atlas).
 - `created_at` (Number) — Instance creation time (epoch ms).
 
 ## Import

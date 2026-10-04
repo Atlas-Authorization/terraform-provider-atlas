@@ -68,13 +68,16 @@ func (r *instanceConfigResource) Schema(_ context.Context, _ resource.SchemaRequ
 			},
 			"auth_config": schema.StringAttribute{
 				MarkdownDescription: "The instance auth configuration as a JSON object string (use `jsonencode(...)`). " +
-					"A PARTIAL patch merged into the current config server-side; reads back the raw stored patch.",
-				Optional: true,
-				Computed: true,
+					"A PARTIAL patch merged into the current config server-side; reads back the server-merged result. " +
+					"The provider suppresses the diff when your config is a subset of that merged value, so a partial " +
+					"patch does not thrash the plan.",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{authConfigSubsetModifier{}},
 			},
 			"auth_config_resolved": schema.StringAttribute{
-				MarkdownDescription: "The EFFECTIVE auth config (every default expanded) as a JSON object string — " +
-					"read-only, for inspecting the live auth behaviour.",
+				MarkdownDescription: "The full effective configuration Atlas resolved from your `auth_config` plus " +
+					"defaults (read-only).",
 				Computed: true,
 			},
 			"environment": schema.StringAttribute{
@@ -85,8 +88,10 @@ func (r *instanceConfigResource) Schema(_ context.Context, _ resource.SchemaRequ
 				MarkdownDescription: "The instance publishable key (`pk_...`).",
 				Computed:            true,
 			},
+			// Read-only/informational: auto-assigned by Atlas and populated by
+			// Read. It is not a diff source — never set from config.
 			"frontend_api_host": schema.StringAttribute{
-				MarkdownDescription: "The instance Frontend API host.",
+				MarkdownDescription: "The instance Frontend API host (read-only; auto-assigned by Atlas).",
 				Computed:            true,
 			},
 			"created_at": schema.Int64Attribute{

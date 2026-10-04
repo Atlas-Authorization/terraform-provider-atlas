@@ -92,9 +92,11 @@ func (r *billingPlanResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Computed:            true,
 			},
 			"amount": schema.StringAttribute{
-				MarkdownDescription: "Display cache of the price in the smallest currency unit (cents), as a string.",
-				Optional:            true,
-				Computed:            true,
+				MarkdownDescription: "A free-form display string for the price, stored verbatim by Atlas — not " +
+					"parsed or converted. Use whatever units you display (e.g. `12.00` for $12, or `1200` for cents); " +
+					"Atlas does not interpret it. Pair it with `currency` and `interval`.",
+				Optional: true,
+				Computed: true,
 			},
 			"currency": schema.StringAttribute{
 				MarkdownDescription: "ISO currency code (e.g. `usd`). Defaults to `usd`.",

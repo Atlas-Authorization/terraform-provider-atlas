@@ -47,8 +47,10 @@ resource "atlas_billing_plan" "free" {
   charged. Omit for the free tier.
 - `audience` (String) — Who may subscribe: `user` or `org`. Defaults to `user`.
 - `interval` (String) — Billing interval: `month` or `year`. Defaults to `month`.
-- `amount` (String) — Display cache of the price in the smallest currency unit
-  (cents), as a string.
+- `amount` (String) — A free-form display string for the price, stored verbatim
+  by Atlas — not parsed or converted. Use whatever units you display (e.g.
+  `12.00` for $12, or `1200` for cents); Atlas does not interpret it. Pair it
+  with `currency` and `interval`.
 - `currency` (String) — ISO currency code (e.g. `usd`). Defaults to `usd`.
 - `features` (List of String) — Feature keys this plan grants, surfaced as the
   `fea` session claim.

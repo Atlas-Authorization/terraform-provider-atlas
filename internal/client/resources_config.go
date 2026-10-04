@@ -100,8 +100,9 @@ func (c *Client) DeleteRedirectURL(ctx context.Context, id string) error {
 
 // BillingPlan mirrors the §billing bapi-billing-plans projection — the plans a
 // tenant defines for their app's users. StripePriceID is null for the free tier
-// (then Free is true). Amount is the smallest currency unit (cents) kept as a
-// string display cache of the Stripe price.
+// (then Free is true). Amount is a free-form display string stored verbatim by
+// Atlas — not parsed, validated or converted; the tenant chooses the units
+// (e.g. "12.00" for $12, or "1200" for cents).
 type BillingPlan struct {
 	ID            string   `json:"id"`
 	Name          string   `json:"name"`
