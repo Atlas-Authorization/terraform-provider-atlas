@@ -2,7 +2,9 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/atlas/terraform-provider-atlas/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -117,4 +119,78 @@ func int64PtrToValue(v *int64) types.Int64 {
 		return types.Int64Null()
 	}
 	return types.Int64Value(*v)
+}
+
+// optionalInt64 returns nil for a null/unknown value, else a *int64.
+func optionalInt64(v types.Int64) *int64 {
+	if v.IsNull() || v.IsUnknown() {
+		return nil
+	}
+	i := v.ValueInt64()
+	return &i
+}
+
+// optionalBool returns nil for a null/unknown value, else a *bool.
+func optionalBool(v types.Bool) *bool {
+	if v.IsNull() || v.IsUnknown() {
+		return nil
+	}
+	b := v.ValueBool()
+	return &b
+}
+
+// boolPtrToValue maps a *bool onto types.Bool.
+func boolPtrToValue(v *bool) types.Bool {
+	if v == nil {
+		return types.BoolNull()
+	}
+	return types.BoolValue(*v)
+}
+
+// canonicalJSON re-encodes a JSON document into a compact, key-sorted form so a
+// value stored in state is stable regardless of the input's whitespace or key
+// order (Go's json.Marshal sorts map keys). Terraform's own jsonencode() emits
+// the same compact, sorted form, so a round-trip does not thrash the plan.
+func canonicalJSON(b []byte) (string, error) {
+	var v interface{}
+	if err := json.Unmarshal(b, &v); err != nil {
+		return "", err
+	}
+	out, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+// jsonRawToValue maps a freeform json.RawMessage API field onto a canonical JSON
+// string attribute. An empty/absent message becomes null; an unparseable one is
+// surfaced verbatim rather than dropped.
+func jsonRawToValue(raw json.RawMessage) types.String {
+	if len(raw) == 0 || string(raw) == "null" {
+		return types.StringNull()
+	}
+	canon, err := canonicalJSON(raw)
+	if err != nil {
+		return types.StringValue(string(raw))
+	}
+	return types.StringValue(canon)
+}
+
+// stringToJSONRaw parses a JSON-string attribute into a json.RawMessage. A
+// null/unknown/empty value yields nil so the field is omitted from a PATCH; a
+// non-null value must be valid JSON or the (reported) error fails the apply.
+func stringToJSONRaw(v types.String) (json.RawMessage, error) {
+	if v.IsNull() || v.IsUnknown() {
+		return nil, nil
+	}
+	s := strings.TrimSpace(v.ValueString())
+	if s == "" {
+		return nil, nil
+	}
+	canon, err := canonicalJSON([]byte(s))
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(canon), nil
 }

@@ -4,17 +4,17 @@ Manage an [Atlas](https://atlasauth.net) authentication instance as declarative
 infrastructure-as-code. The provider wraps Atlas's secret-key **Backend API**
 (BAPI) — the instance-scoped `/v1/*` endpoints an `sk_` key can call — so your
 OAuth clients, SSO connections, resource servers, JWT templates, webhook
-endpoints, roles, organizations and custom domains live in version control and
+endpoints, roles, organizations (and their policies), custom domains, instance
+settings, redirect-URL allowlist and billing plans live in version control and
 roll out through the same plan/apply flow as the rest of your infrastructure.
 
 Terraform manages **declarative configuration**, not per-user runtime data.
 There are deliberately no `user` or `session` resources — those belong to the
 application and the Backend API, not to a plan/apply lifecycle.
 
-> **Community provider.** This is an independent, community-maintained provider.
-> It is not an official product of, and is not affiliated with or endorsed by,
-> Atlas or any hosted Atlas offering. It talks only to the documented public
-> Backend API.
+> **Official provider.** This is the first-party Atlas Terraform provider,
+> published and maintained by Atlas. It talks only to the documented public
+> Backend API and authenticates with your instance secret key (`sk_...`).
 
 ## Example Usage
 
@@ -69,7 +69,11 @@ environment.
 | [`atlas_webhook_endpoint`](resources/webhook_endpoint.md) | Signed-event delivery endpoint. |
 | [`atlas_role`](resources/role.md) | Custom organization role and its permissions. |
 | [`atlas_organization`](resources/organization.md) | Organization (tenant) profile. |
+| [`atlas_organization_policy`](resources/organization_policy.md) | Per-org security policy (MFA, SSO, sign-in methods, IP allow-list, session age). |
 | [`atlas_domain`](resources/domain.md) | Custom instance domain (`fapi` / `accounts`). |
+| [`atlas_instance_config`](resources/instance_config.md) | Singleton instance config: allowed origins + auth config. |
+| [`atlas_redirect_url`](resources/redirect_url.md) | Allowlisted OAuth/SSO redirect URL. |
+| [`atlas_billing_plan`](resources/billing_plan.md) | End-user billing plan (features, Stripe price, pricing model). |
 
 ## Data Sources
 

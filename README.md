@@ -4,16 +4,16 @@ Manage your [Atlas](https://atlasauth.net) authentication instance as declarativ
 infrastructure-as-code. The provider wraps Atlas's secret-key **Backend API**
 (the instance-scoped `/v1/*` endpoints an `sk_` key can call), so your OAuth
 clients, SSO connections, resource servers, JWT templates, webhook endpoints,
-roles, organizations and custom domains live in version control and roll out
+roles, organizations (and their policies), custom domains, instance settings,
+redirect-URL allowlist and billing plans live in version control and roll out
 through the same review-and-apply flow as the rest of your infrastructure.
 
 Terraform manages **declarative configuration**, not per-user runtime data.
 There are deliberately no `user` or `session` resources — those belong to the
 Backend API and your application, not to a plan/apply lifecycle.
 
-> **Community provider.** This is an independent, community-maintained provider.
-> It is not an official product of, and is not affiliated with or endorsed by,
-> Atlas or any hosted Atlas offering. It talks only to the documented public
+> **Official provider.** This is the first-party Atlas Terraform provider,
+> published and maintained by Atlas. It talks only to the documented public
 > secret-key Backend API and authenticates with your instance secret key
 > (`sk_...`).
 
@@ -91,7 +91,11 @@ terraform {
 | `atlas_webhook_endpoint`  | Create / Read / Delete     | Signing `secret` revealed only on create. The Backend API has **no update route**, so `url` and `enabled_events` force replacement. |
 | `atlas_role`              | Create / Read / Update / Delete | Custom org role. `key` is immutable (forces replacement); permissions are applied via a separate endpoint and unknown keys are dropped by the API. |
 | `atlas_organization`      | Create / Read / Update / Delete | `created_by` (an existing user id) is required and immutable (forces replacement). |
+| `atlas_organization_policy` | Create / Read / Update / Delete | Per-org security policy: `require_mfa`, `sso_required`, `allowed_sign_in_methods`, `ip_allowlist`, `max_session_age_seconds`, `session_idle_override_ms`. Keyed by `organization_id`. Atlas has no policy GET, so reads use an idempotent empty merge (records an audit entry per refresh). |
 | `atlas_domain`            | Create / Read / Delete     | Custom instance domain (`fapi` / `accounts`). No update route, so `role` and `host` force replacement. Point a CNAME at `cname_target`, then verify out of band. |
+| `atlas_instance_config`   | Create / Read / Update (Delete = unmanage) | Singleton instance config. Manages `allowed_origins` + `auth_config` via `PATCH /v1/instance`. `auth_config` is a JSON string merged server-side. Destroy only stops managing it. |
+| `atlas_redirect_url`      | Create / Read / Delete     | Allowlisted OAuth/SSO redirect URL. No update route; the API normalises the stored `url`, which is immutable (forces replacement). |
+| `atlas_billing_plan`      | Create / Read / Update / Delete | End-user billing plan. A plan with no `stripe_price_id` is the free tier (`free` computed). `slug` → `pla` claim, `features` → `fea` claim. |
 
 ## Data sources
 

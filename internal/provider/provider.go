@@ -108,6 +108,10 @@ func (p *AtlasProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewRoleResource,
 		NewOrganizationResource,
 		NewDomainResource,
+		NewInstanceConfigResource,
+		NewRedirectURLResource,
+		NewBillingPlanResource,
+		NewOrganizationPolicyResource,
 	}
 }
 
