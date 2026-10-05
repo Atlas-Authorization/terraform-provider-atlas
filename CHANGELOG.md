@@ -4,6 +4,24 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
+## 0.5.0
+
+### Added
+
+- **`atlas_billing_plan.limits`** — an optional map of limit name to number
+  (e.g. `{ max_devices = 5 }`): the numeric caps a plan grants, alongside
+  `features`. Unset keeps the current limits; `{}` clears them.
+- **`atlas_org_settings_schema`** (new resource) — manages the per-instance
+  org-settings JSON Schema registry (`/v1/organization_settings_schema`), with a
+  computed `version`. Destroy only removes it from state (the API has no delete).
+- **`atlas_notification_template`** (new resource) — manages tenant
+  notification templates (`/v1/notification_templates`): name, subject, body
+  and category. Import by name.
+- **`atlas_email_template`** (new resource) — manages the copy override
+  (subject/text) of a single built-in email template through the dedicated
+  `/v1/email_templates/:name` endpoint, which validates `{{placeholders}}` at
+  save time. Destroy reverts to the built-in copy. Import by template name.
+
 ## 0.4.0
 
 ### Changed

@@ -37,6 +37,7 @@ type billingPlanModel struct {
 	Amount        types.String `tfsdk:"amount"`
 	Currency      types.String `tfsdk:"currency"`
 	Features      types.List   `tfsdk:"features"`
+	Limits        types.Map    `tfsdk:"limits"`
 	Active        types.Bool   `tfsdk:"active"`
 	PricingModel  types.String `tfsdk:"pricing_model"`
 	TrialDays     types.Int64  `tfsdk:"trial_days"`
@@ -109,6 +110,15 @@ func (r *billingPlanResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Computed:            true,
 				ElementType:         types.StringType,
 			},
+			"limits": schema.MapAttribute{
+				MarkdownDescription: "Numeric caps this plan grants, keyed by limit name (e.g. `{ max_devices = 5, max_seats = 25 }`). " +
+					"Where `features` answer \"can they?\", limits answer \"how many?\"; they are surfaced on the verified token and " +
+					"merged under any per-organization override. Unset keeps the plan's current limits (none for a new plan); " +
+					"set to `{}` to clear them.",
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.Float64Type,
+			},
 			"active": schema.BoolAttribute{
 				MarkdownDescription: "Whether the plan is offered. Defaults to true.",
 				Optional:            true,
@@ -152,6 +162,7 @@ func (r *billingPlanResource) Create(ctx context.Context, req resource.CreateReq
 		Amount:        optionalString(plan.Amount),
 		Currency:      optionalString(plan.Currency),
 		Features:      listToStringSlice(ctx, plan.Features, &resp.Diagnostics),
+		Limits:        floatMapToPtr(ctx, plan.Limits, &resp.Diagnostics),
 		Active:        optionalBool(plan.Active),
 		PricingModel:  optionalString(plan.PricingModel),
 		TrialDays:     optionalInt64(plan.TrialDays),
@@ -204,6 +215,7 @@ func (r *billingPlanResource) Update(ctx context.Context, req resource.UpdateReq
 		Amount:        optionalString(plan.Amount),
 		Currency:      optionalString(plan.Currency),
 		Features:      listToStringSlice(ctx, plan.Features, &resp.Diagnostics),
+		Limits:        floatMapToPtr(ctx, plan.Limits, &resp.Diagnostics),
 		Active:        optionalBool(plan.Active),
 		PricingModel:  optionalString(plan.PricingModel),
 		TrialDays:     optionalInt64(plan.TrialDays),
@@ -251,6 +263,7 @@ func (r *billingPlanResource) mapToState(ctx context.Context, p *client.BillingP
 	m.Amount = stringPtrToValue(p.Amount)
 	m.Currency = types.StringValue(p.Currency)
 	m.Features = stringSliceToList(ctx, p.Features, diags)
+	m.Limits = floatMapToMap(ctx, p.Limits, diags)
 	m.Active = types.BoolValue(p.Active)
 	m.PricingModel = types.StringValue(p.PricingModel)
 	m.TrialDays = int64PtrToValue(p.TrialDays)

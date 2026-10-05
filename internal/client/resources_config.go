@@ -104,23 +104,24 @@ func (c *Client) DeleteRedirectURL(ctx context.Context, id string) error {
 // Atlas — not parsed, validated or converted; the tenant chooses the units
 // (e.g. "12.00" for $12, or "1200" for cents).
 type BillingPlan struct {
-	ID            string   `json:"id"`
-	Name          string   `json:"name"`
-	Slug          string   `json:"slug"`
-	StripePriceID *string  `json:"stripe_price_id"`
-	Free          bool     `json:"free"`
-	Interval      string   `json:"interval"`
-	Amount        *string  `json:"amount"`
-	Currency      string   `json:"currency"`
-	Features      []string `json:"features"`
-	Audience      string   `json:"audience"`
-	Active        bool     `json:"active"`
-	PricingModel  string   `json:"pricing_model"`
-	TrialDays     *int64   `json:"trial_days"`
-	StripeMeterID *string  `json:"stripe_meter_id"`
-	UsageUnit     *string  `json:"usage_unit"`
-	CreatedAt     int64    `json:"created_at"`
-	UpdatedAt     int64    `json:"updated_at"`
+	ID            string             `json:"id"`
+	Name          string             `json:"name"`
+	Slug          string             `json:"slug"`
+	StripePriceID *string            `json:"stripe_price_id"`
+	Free          bool               `json:"free"`
+	Interval      string             `json:"interval"`
+	Amount        *string            `json:"amount"`
+	Currency      string             `json:"currency"`
+	Features      []string           `json:"features"`
+	Limits        map[string]float64 `json:"limits"`
+	Audience      string             `json:"audience"`
+	Active        bool               `json:"active"`
+	PricingModel  string             `json:"pricing_model"`
+	TrialDays     *int64             `json:"trial_days"`
+	StripeMeterID *string            `json:"stripe_meter_id"`
+	UsageUnit     *string            `json:"usage_unit"`
+	CreatedAt     int64              `json:"created_at"`
+	UpdatedAt     int64              `json:"updated_at"`
 }
 
 // BillingPlanWrite is the create/update payload. Pointer/omitempty fields let an
@@ -133,12 +134,14 @@ type BillingPlanWrite struct {
 	Amount        *string  `json:"amount,omitempty"`
 	Currency      *string  `json:"currency,omitempty"`
 	Features      []string `json:"features,omitempty"`
-	Audience      *string  `json:"audience,omitempty"`
-	Active        *bool    `json:"active,omitempty"`
-	PricingModel  *string  `json:"pricing_model,omitempty"`
-	TrialDays     *int64   `json:"trial_days,omitempty"`
-	StripeMeterID *string  `json:"stripe_meter_id,omitempty"`
-	UsageUnit     *string  `json:"usage_unit,omitempty"`
+	// Limits is a pointer so an explicit empty map (clear all limits) is sent as {}.
+	Limits        *map[string]float64 `json:"limits,omitempty"`
+	Audience      *string             `json:"audience,omitempty"`
+	Active        *bool               `json:"active,omitempty"`
+	PricingModel  *string             `json:"pricing_model,omitempty"`
+	TrialDays     *int64              `json:"trial_days,omitempty"`
+	StripeMeterID *string             `json:"stripe_meter_id,omitempty"`
+	UsageUnit     *string             `json:"usage_unit,omitempty"`
 }
 
 func (c *Client) CreateBillingPlan(ctx context.Context, body BillingPlanWrite) (*BillingPlan, error) {
@@ -219,4 +222,132 @@ func (c *Client) SetOrgPolicy(ctx context.Context, orgID string, body OrgPolicyP
 // organization propagates as NOT_FOUND so a deleted org drops from state.
 func (c *Client) GetOrgPolicy(ctx context.Context, orgID string) (*OrgPolicy, error) {
 	return c.SetOrgPolicy(ctx, orgID, OrgPolicyPatch{})
+}
+
+// ─────────────────────── Org settings schema (P1-5) ───────────────────────
+
+// OrgSettingsSchema is the per-instance JSON Schema registry entry. Schema is
+// the raw document; Version is bumped by the server on every (re)registration.
+type OrgSettingsSchema struct {
+	Schema    json.RawMessage `json:"schema"`
+	Version   int64           `json:"version"`
+	UpdatedAt int64           `json:"updated_at"`
+}
+
+// PutOrgSettingsSchema registers (or replaces) the instance's schema. PUT is the
+// idempotent form.
+func (c *Client) PutOrgSettingsSchema(ctx context.Context, schema json.RawMessage) (*OrgSettingsSchema, error) {
+	var out OrgSettingsSchema
+	body := map[string]json.RawMessage{"schema": schema}
+	if err := c.do(ctx, http.MethodPut, "/v1/organization_settings_schema", body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) GetOrgSettingsSchema(ctx context.Context) (*OrgSettingsSchema, error) {
+	var out OrgSettingsSchema
+	if err := c.do(ctx, http.MethodGet, "/v1/organization_settings_schema", nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// ───────────────────────── Notification templates (P2-12) ─────────────────────────
+
+// NotificationTemplate is a tenant-authored notification template, keyed by name.
+type NotificationTemplate struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Subject   string `json:"subject"`
+	Body      string `json:"body"`
+	Category  string `json:"category"`
+	CreatedAt int64  `json:"created_at"`
+	UpdatedAt int64  `json:"updated_at"`
+}
+
+// NotificationTemplateWrite is the create/update payload (Name is create-only).
+type NotificationTemplateWrite struct {
+	Name     string `json:"name,omitempty"`
+	Subject  string `json:"subject"`
+	Body     string `json:"body"`
+	Category string `json:"category"`
+}
+
+func (c *Client) CreateNotificationTemplate(ctx context.Context, body NotificationTemplateWrite) (*NotificationTemplate, error) {
+	var out NotificationTemplate
+	if err := c.do(ctx, http.MethodPost, "/v1/notification_templates", body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) GetNotificationTemplate(ctx context.Context, name string) (*NotificationTemplate, error) {
+	var out NotificationTemplate
+	if err := c.do(ctx, http.MethodGet, "/v1/notification_templates/"+url.PathEscape(name), nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) UpdateNotificationTemplate(ctx context.Context, name string, body NotificationTemplateWrite) (*NotificationTemplate, error) {
+	body.Name = "" // the name is the URL key and immutable
+	var out NotificationTemplate
+	if err := c.do(ctx, http.MethodPut, "/v1/notification_templates/"+url.PathEscape(name), body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) DeleteNotificationTemplate(ctx context.Context, name string) error {
+	return c.do(ctx, http.MethodDelete, "/v1/notification_templates/"+url.PathEscape(name), nil, nil)
+}
+
+// ───────────────────────────── Email templates (§11.1) ─────────────────────────────
+
+// EmailTemplateOverride is the stored copy override for one email template.
+type EmailTemplateOverride struct {
+	Subject *string `json:"subject,omitempty"`
+	Text    *string `json:"text,omitempty"`
+}
+
+// EmailTemplate is one entry of the email-template list: the built-in default,
+// the instance override (nil when not customised) and the customised flag.
+type EmailTemplate struct {
+	Name       string                 `json:"name"`
+	Override   *EmailTemplateOverride `json:"override"`
+	Customised bool                   `json:"customised"`
+}
+
+type emailTemplateList struct {
+	Data []EmailTemplate `json:"data"`
+}
+
+// GetEmailTemplate reads one template via the list endpoint (there is no
+// single-item GET). An unknown name returns a synthetic 404.
+func (c *Client) GetEmailTemplate(ctx context.Context, name string) (*EmailTemplate, error) {
+	var out emailTemplateList
+	if err := c.do(ctx, http.MethodGet, "/v1/email_templates", nil, &out); err != nil {
+		return nil, err
+	}
+	for i := range out.Data {
+		if out.Data[i].Name == name {
+			return &out.Data[i], nil
+		}
+	}
+	return nil, &APIError{Status: http.StatusNotFound, Errors: []ErrorItem{{Code: "NOT_FOUND", Message: "Unknown email template."}}}
+}
+
+// PutEmailTemplate saves the override; the server validates {{placeholders}}.
+func (c *Client) PutEmailTemplate(ctx context.Context, name string, body EmailTemplateOverride) (*EmailTemplate, error) {
+	var out EmailTemplate
+	if err := c.do(ctx, http.MethodPut, "/v1/email_templates/"+url.PathEscape(name), body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// DeleteEmailTemplate reverts the template to the built-in copy.
+func (c *Client) DeleteEmailTemplate(ctx context.Context, name string) error {
+	return c.do(ctx, http.MethodDelete, "/v1/email_templates/"+url.PathEscape(name), nil, nil)
 }

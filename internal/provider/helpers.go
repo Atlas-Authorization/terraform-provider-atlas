@@ -194,3 +194,25 @@ func stringToJSONRaw(v types.String) (json.RawMessage, error) {
 	}
 	return json.RawMessage(canon), nil
 }
+
+// floatMapToPtr converts a types.Map of numbers into a *map[string]float64. A
+// null/unknown map yields nil so the field is omitted; an empty map yields a
+// pointer to an empty map so it is sent as {} (clearing the server value).
+func floatMapToPtr(ctx context.Context, m types.Map, diags *diag.Diagnostics) *map[string]float64 {
+	if m.IsNull() || m.IsUnknown() {
+		return nil
+	}
+	out := map[string]float64{}
+	diags.Append(m.ElementsAs(ctx, &out, false)...)
+	return &out
+}
+
+// floatMapToMap converts a Go map[string]float64 into a types.Map of numbers.
+func floatMapToMap(ctx context.Context, values map[string]float64, diags *diag.Diagnostics) types.Map {
+	if values == nil {
+		values = map[string]float64{}
+	}
+	m, d := types.MapValueFrom(ctx, types.Float64Type, values)
+	diags.Append(d...)
+	return m
+}
