@@ -8,7 +8,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -48,24 +47,23 @@ func (r *webhookEndpointResource) Configure(_ context.Context, req resource.Conf
 func (r *webhookEndpointResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "A webhook endpoint that receives signed Atlas events. The signing secret (`whsec_...`) is " +
-			"revealed once, on create, and stored (sensitive) in state. The Backend API has no update route, so any " +
-			"change to url or enabled_events replaces the endpoint (and re-issues the secret).",
+			"revealed once, on create, and stored (sensitive) in state. Changing `url` or `enabled_events` updates the " +
+			"endpoint IN PLACE (via the Backend API PATCH route) and PRESERVES the signing secret, so deliveries keep " +
+			"verifying without a re-subscription.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:      true,
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"url": schema.StringAttribute{
-				MarkdownDescription: "HTTPS URL that receives event deliveries. Immutable — forces replacement.",
+				MarkdownDescription: "HTTPS URL that receives event deliveries. Updatable in place (the secret is preserved).",
 				Required:            true,
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"enabled_events": schema.ListAttribute{
-				MarkdownDescription: "Event types to deliver, or [\"*\"] for all. Immutable — forces replacement.",
+				MarkdownDescription: "Event types to deliver, or [\"*\"] for all. Updatable in place (the secret is preserved).",
 				Optional:            true,
 				Computed:            true,
 				ElementType:         types.StringType,
-				PlanModifiers:       []planmodifier.List{listplanmodifier.RequiresReplace()},
 			},
 			"secret": schema.StringAttribute{
 				MarkdownDescription: "The signing secret, revealed only on create.",
@@ -128,11 +126,35 @@ func (r *webhookEndpointResource) Read(ctx context.Context, req resource.ReadReq
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
-// Update is unreachable: every writable attribute is RequiresReplace. It exists
-// to satisfy the resource.Resource interface.
+// Update patches url/enabled_events in place via the Backend API PATCH route,
+// which does NOT rotate the signing secret. The PATCH response never returns the
+// secret, so it is carried forward from prior state.
 func (r *webhookEndpointResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan webhookEndpointModel
+	var plan, state webhookEndpointModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	events := listToStringSlice(ctx, plan.EnabledEvents, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	patch := client.WebhookEndpointUpdate{
+		URL:           optionalString(plan.URL),
+		EnabledEvents: events,
+		Active:        optionalBool(plan.Active),
+	}
+	updated, err := r.client.UpdateWebhookEndpoint(ctx, state.ID.ValueString(), patch)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to update webhook endpoint", err.Error())
+		return
+	}
+	// The PATCH response omits the secret (it is not rotated by an update); map
+	// every other field from the response and carry the create-time secret
+	// forward from prior state.
+	r.mapToState(ctx, updated, &plan, &resp.Diagnostics, false)
+	plan.Secret = state.Secret
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

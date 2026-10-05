@@ -84,6 +84,21 @@ func testAccCheckAttrChanged(resourceName, attr string, old *string) resource.Te
 	}
 }
 
+// testAccCheckAttrUnchanged asserts the captured attribute matches its current
+// value — the signature of an in-place update (no replacement, value preserved).
+func testAccCheckAttrUnchanged(resourceName, attr string, old *string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("resource %s not found in state", resourceName)
+		}
+		if now := rs.Primary.Attributes[attr]; now != *old {
+			return fmt.Errorf("expected %s.%s to be preserved (in-place update), but it changed from %q to %q", resourceName, attr, *old, now)
+		}
+		return nil
+	}
+}
+
 // deleteOutOfBand returns a check that deletes the resource through the Backend
 // API directly, simulating drift. Pairing it with ExpectNonEmptyPlan: true
 // proves the provider's Read drops a vanished object from state and re-plans it.

@@ -304,6 +304,28 @@ func (c *Client) GetWebhookEndpoint(ctx context.Context, id string) (*WebhookEnd
 	return nil, &APIError{Status: http.StatusNotFound, Errors: []ErrorItem{{Code: "NOT_FOUND", Message: "Unknown webhook endpoint."}}}
 }
 
+// WebhookEndpointUpdate is the PATCH /v1/webhook_endpoints/:id body. Every field
+// is a pointer/slice so only the fields the caller supplies are serialized (a nil
+// field is omitted and left untouched server-side). The signing secret is NOT a
+// field here and is never re-issued by an update.
+type WebhookEndpointUpdate struct {
+	URL           *string  `json:"url,omitempty"`
+	EnabledEvents []string `json:"enabled_events,omitempty"`
+	Active        *bool    `json:"active,omitempty"`
+}
+
+// UpdateWebhookEndpoint patches an endpoint IN PLACE (url, enabled_events and/or
+// active) without rotating the signing secret. PATCH /v1/webhook_endpoints/:id —
+// the 200 body is the updated projection with NO secret field (the secret is
+// preserved, so the caller must carry it forward from prior state).
+func (c *Client) UpdateWebhookEndpoint(ctx context.Context, id string, patch WebhookEndpointUpdate) (*WebhookEndpoint, error) {
+	var out WebhookEndpoint
+	if err := c.do(ctx, http.MethodPatch, "/v1/webhook_endpoints/"+url.PathEscape(id), patch, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *Client) DeleteWebhookEndpoint(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodDelete, "/v1/webhook_endpoints/"+url.PathEscape(id), nil, nil)
 }

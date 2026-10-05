@@ -50,8 +50,9 @@ func (r *instanceConfigResource) Schema(_ context.Context, _ resource.SchemaRequ
 		MarkdownDescription: "The singleton configuration of the Atlas instance this secret key belongs to: its " +
 			"`allowed_origins` CORS list and its `auth_config`. There is exactly one per instance — manage a single " +
 			"`atlas_instance_config` resource. `auth_config` is a PARTIAL patch merged server-side (never a wholesale " +
-			"replacement), so manage the whole object you intend to set and expect `auth_config` to read back the merged " +
-			"result. Destroying this resource only stops Terraform managing the config; it does not reset the instance.",
+			"replacement); state keeps the patch you wrote verbatim, while the full merged result is read back into the " +
+			"computed `auth_config_resolved`. Destroying this resource only stops Terraform managing the config; it does " +
+			"not reset the instance.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "The Atlas instance id (singleton key).",
@@ -68,12 +69,11 @@ func (r *instanceConfigResource) Schema(_ context.Context, _ resource.SchemaRequ
 			},
 			"auth_config": schema.StringAttribute{
 				MarkdownDescription: "The instance auth configuration as a JSON object string (use `jsonencode(...)`). " +
-					"A PARTIAL patch merged into the current config server-side; reads back the server-merged result. " +
-					"The provider suppresses the diff when your config is a subset of that merged value, so a partial " +
-					"patch does not thrash the plan.",
-				Optional:      true,
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{authConfigSubsetModifier{}},
+					"A PARTIAL patch merged into the current config server-side. State holds exactly the patch you " +
+					"wrote (round-tripped verbatim), NOT the server-merged object, so the plan is clean. The full " +
+					"effective configuration is exposed separately as `auth_config_resolved`.",
+				Optional: true,
+				Computed: true,
 			},
 			"auth_config_resolved": schema.StringAttribute{
 				MarkdownDescription: "The full effective configuration Atlas resolved from your `auth_config` plus " +
@@ -188,12 +188,25 @@ func (r *instanceConfigResource) write(ctx context.Context, plan *instanceConfig
 		return
 	}
 	r.mapToState(ctx, fetched, plan, diags)
+	// `auth_config` in state must equal what the user WROTE (the partial patch,
+	// round-tripped verbatim), NOT the server-merged object mapToState leaves
+	// alone — this keeps plan == apply and avoids a phantom diff. Only when the
+	// user configured nothing (an unset Optional+Computed value, which plans as
+	// unknown) do we surface the API's stored patch so the computed attribute
+	// resolves to a concrete value.
+	if plan.AuthConfig.IsNull() || plan.AuthConfig.IsUnknown() {
+		plan.AuthConfig = jsonRawToValue(fetched.AuthConfig)
+	}
 }
 
+// mapToState refreshes the computed fields from the API projection. It
+// deliberately does NOT touch `auth_config`: that attribute holds the user's
+// last-applied partial patch verbatim (set by Create/Update, preserved by Read),
+// NOT the server-merged object. The merged/effective view lives in the computed
+// `auth_config_resolved`, which is refreshed here every Read/Create/Update.
 func (r *instanceConfigResource) mapToState(ctx context.Context, in *client.Instance, m *instanceConfigModel, diags *diag.Diagnostics) {
 	m.ID = types.StringValue(in.ID)
 	m.AllowedOrigins = stringSliceToSet(ctx, in.AllowedOrigins, diags)
-	m.AuthConfig = jsonRawToValue(in.AuthConfig)
 	m.AuthConfigResolved = jsonRawToValue(in.AuthConfigResolved)
 	m.Environment = types.StringValue(in.Environment)
 	m.PublishableKey = types.StringValue(in.PublishableKey)

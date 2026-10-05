@@ -42,14 +42,15 @@ func TestAccWebhookEndpoint_basic(t *testing.T) {
 	})
 }
 
-// TestAccWebhookEndpoint_replace changes url (RequiresReplace): the Backend API
-// has no update route, so the endpoint is destroyed and recreated. The check
-// asserts the id actually changed, proving a replacement rather than an
-// (impossible) in-place update.
-func TestAccWebhookEndpoint_replace(t *testing.T) {
+// TestAccWebhookEndpoint_updateInPlace changes url and enabled_events: the
+// Backend API PATCH route updates the endpoint in place WITHOUT rotating the
+// signing secret. The check asserts the id is unchanged (no replacement) and the
+// secret is identical to the create-time value (preserved), proving an in-place
+// update rather than a destroy+recreate.
+func TestAccWebhookEndpoint_updateInPlace(t *testing.T) {
 	url1 := fmt.Sprintf("https://hooks.%s.example.com/atlas", acctest.RandString(8))
 	url2 := fmt.Sprintf("https://hooks.%s.example.com/atlas", acctest.RandString(8))
-	var firstID string
+	var firstID, firstSecret string
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -57,13 +58,20 @@ func TestAccWebhookEndpoint_replace(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccWebhookEndpointConfig(url1, `["user.created"]`),
-				Check:  testAccCaptureAttr("atlas_webhook_endpoint.test", "id", &firstID),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCaptureAttr("atlas_webhook_endpoint.test", "id", &firstID),
+					testAccCaptureAttr("atlas_webhook_endpoint.test", "secret", &firstSecret),
+				),
 			},
 			{
-				Config: testAccWebhookEndpointConfig(url2, `["user.created"]`),
+				Config: testAccWebhookEndpointConfig(url2, `["user.created", "user.updated"]`),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("atlas_webhook_endpoint.test", "url", url2),
-					testAccCheckAttrChanged("atlas_webhook_endpoint.test", "id", &firstID),
+					resource.TestCheckResourceAttr("atlas_webhook_endpoint.test", "enabled_events.#", "2"),
+					// id unchanged → no replacement.
+					testAccCheckAttrUnchanged("atlas_webhook_endpoint.test", "id", &firstID),
+					// secret preserved across the in-place update.
+					testAccCheckAttrUnchanged("atlas_webhook_endpoint.test", "secret", &firstSecret),
 				),
 			},
 		},

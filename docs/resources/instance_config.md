@@ -5,9 +5,11 @@ its `allowed_origins` CORS list and its `auth_config`. There is exactly one per
 instance, so declare a single `atlas_instance_config` resource.
 
 `auth_config` is a **partial patch merged server-side** (never a wholesale
-replacement), so manage the whole object you intend to set and expect
-`auth_config` to read back the merged result. Destroying this resource only
-stops Terraform managing the config; it does not reset the instance.
+replacement). State keeps exactly the patch you wrote (round-tripped verbatim),
+so a partial config produces a clean plan with no phantom diff; the full
+server-merged result is exposed separately in the computed `auth_config_resolved`.
+Destroying this resource only stops Terraform managing the config; it does not
+reset the instance.
 
 Backend API (BAPI): `GET /v1/instance` (read),
 `PATCH /v1/instance` (create/update — upsert of `allowed_origins` + `auth_config`).
@@ -43,9 +45,9 @@ output "effective_auth_config" {
   `ionic://`) are accepted.
 - `auth_config` (String) — The instance auth configuration as a JSON object
   string (use `jsonencode(...)`). A partial patch merged into the current config
-  server-side; reads back the server-merged result. The provider suppresses the
-  diff when your config is a subset of that merged value, so a partial patch
-  does not thrash the plan.
+  server-side. State holds exactly the patch you wrote (round-tripped verbatim),
+  not the server-merged object, so a partial patch does not thrash the plan. The
+  full effective configuration is exposed separately as `auth_config_resolved`.
 
 ### Read-Only
 

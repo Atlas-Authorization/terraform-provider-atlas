@@ -1,13 +1,15 @@
 # atlas_webhook_endpoint
 
 A webhook endpoint that receives signed Atlas events. The signing secret
-(`whsec_...`) is revealed once, on create, and stored (sensitive) in state. The
-Backend API has **no update route**, so any change to `url` or `enabled_events`
-replaces the endpoint (and re-issues the secret).
+(`whsec_...`) is revealed once, on create, and stored (sensitive) in state.
+Changing `url` or `enabled_events` updates the endpoint **in place** and
+**preserves the signing secret**, so event deliveries keep verifying without a
+re-subscription.
 
 Backend API (BAPI): `POST /v1/webhook_endpoints` (create),
 `GET /v1/webhook_endpoints` (list — the read filters this list by id, since there
-is no get-by-id route), `DELETE /v1/webhook_endpoints/:id` (delete).
+is no get-by-id route), `PATCH /v1/webhook_endpoints/:id` (in-place update — does
+not rotate the secret), `DELETE /v1/webhook_endpoints/:id` (delete).
 
 ## Example Usage
 
@@ -22,11 +24,11 @@ resource "atlas_webhook_endpoint" "events" {
 
 ### Required
 
-- `url` (String) — HTTPS URL that receives event deliveries. Immutable — forces replacement.
+- `url` (String) — HTTPS URL that receives event deliveries. Updatable in place (the secret is preserved).
 
 ### Optional
 
-- `enabled_events` (List of String) — Event types to deliver, or `["*"]` for all. Immutable — forces replacement.
+- `enabled_events` (List of String) — Event types to deliver, or `["*"]` for all. Updatable in place (the secret is preserved).
 
 ### Read-Only
 
