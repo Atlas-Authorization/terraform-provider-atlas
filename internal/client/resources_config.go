@@ -303,6 +303,68 @@ func (c *Client) DeleteNotificationTemplate(ctx context.Context, name string) er
 	return c.do(ctx, http.MethodDelete, "/v1/notification_templates/"+url.PathEscape(name), nil, nil)
 }
 
+// ─────────────────────── Notification categories (round-7 #9) ───────────────────────
+
+// NotificationCategory is a tenant-defined end-user notification category,
+// keyed by `key`, with a user-facing `label` shown on the preference toggle.
+// Tenant categories are always optional (they never gate a built-in).
+type NotificationCategory struct {
+	ID        string `json:"id"`
+	Key       string `json:"key"`
+	Label     string `json:"label"`
+	Optional  bool   `json:"optional"`
+	CreatedAt int64  `json:"created_at"`
+}
+
+// NotificationCategoryWrite is the create payload (`key` is create-only; the
+// update route takes `label` alone).
+type NotificationCategoryWrite struct {
+	Key   string `json:"key,omitempty"`
+	Label string `json:"label"`
+}
+
+type notificationCategoryList struct {
+	Data []NotificationCategory `json:"data"`
+}
+
+func (c *Client) CreateNotificationCategory(ctx context.Context, body NotificationCategoryWrite) (*NotificationCategory, error) {
+	var out NotificationCategory
+	if err := c.do(ctx, http.MethodPost, "/v1/notification_categories", body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// GetNotificationCategory reads one category via the list endpoint (there is no
+// get-by-key route). An unknown key returns a synthetic 404.
+func (c *Client) GetNotificationCategory(ctx context.Context, key string) (*NotificationCategory, error) {
+	var out notificationCategoryList
+	if err := c.do(ctx, http.MethodGet, "/v1/notification_categories", nil, &out); err != nil {
+		return nil, err
+	}
+	for i := range out.Data {
+		if out.Data[i].Key == key {
+			return &out.Data[i], nil
+		}
+	}
+	return nil, &APIError{Status: http.StatusNotFound, Errors: []ErrorItem{{Code: "NOT_FOUND", Message: "Unknown notification category."}}}
+}
+
+func (c *Client) UpdateNotificationCategory(ctx context.Context, key string, body NotificationCategoryWrite) (*NotificationCategory, error) {
+	body.Key = "" // the key is the URL path and immutable
+	var out NotificationCategory
+	if err := c.do(ctx, http.MethodPut, "/v1/notification_categories/"+url.PathEscape(key), body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// DeleteNotificationCategory removes the category. The API returns 409 if a
+// notification template still references it.
+func (c *Client) DeleteNotificationCategory(ctx context.Context, key string) error {
+	return c.do(ctx, http.MethodDelete, "/v1/notification_categories/"+url.PathEscape(key), nil, nil)
+}
+
 // ───────────────────────────── Email templates (§11.1) ─────────────────────────────
 
 // EmailTemplateOverride is the stored copy override for one email template.

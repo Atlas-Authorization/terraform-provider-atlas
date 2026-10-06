@@ -21,8 +21,12 @@ resource "atlas_billing_plan" "pro" {
   interval        = "month"
   currency        = "usd"
   features        = ["seats", "sso", "audit_log"]
-  pricing_model   = "per_seat"
-  trial_days      = 14
+  limits = {
+    max_seats   = 25
+    max_devices = 5
+  }
+  pricing_model = "per_seat"
+  trial_days    = 14
 }
 
 # The free tier: a plan with no Stripe price.
@@ -54,6 +58,11 @@ resource "atlas_billing_plan" "free" {
 - `currency` (String) — ISO currency code (e.g. `usd`). Defaults to `usd`.
 - `features` (List of String) — Feature keys this plan grants, surfaced as the
   `fea` session claim.
+- `limits` (Map of Number) — Numeric caps the plan grants, keyed by limit name
+  (e.g. `{ max_seats = 25, max_devices = 5 }`). Where `features` answer "can
+  they?", limits answer "how many?"; they are surfaced on the verified token and
+  merged under any per-organization override. Unset keeps the plan's current
+  limits (none for a new plan); `{}` clears them.
 - `active` (Boolean) — Whether the plan is offered. Defaults to `true`.
 - `pricing_model` (String) — `flat`, `per_seat` or `metered`. Defaults to `flat`.
 - `trial_days` (Number) — Free trial length in days (0–3650), or omitted for none.

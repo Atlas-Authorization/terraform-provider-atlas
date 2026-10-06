@@ -4,6 +4,25 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
+## 0.6.0
+
+### Added
+
+- **`atlas_notification_category`** (new resource) — manages tenant-defined
+  end-user notification categories (`/v1/notification_categories`): a `key` and
+  a user-facing `label` shown on the preference toggle. A tenant category is
+  always `optional` and cannot shadow a built-in; deleting one still referenced
+  by a notification template is rejected (`409`). Import by key.
+
+### Documentation
+
+- Added resource docs for **`atlas_org_settings_schema`**,
+  **`atlas_notification_template`** and **`atlas_email_template`** (all shipped
+  in 0.5.0 without pages) and for the new **`atlas_notification_category`**,
+  plus matching `examples/resources/` HCL.
+- Documented the **`atlas_billing_plan.limits`** map attribute (added in 0.5.0)
+  on the billing-plan resource page and example.
+
 ## 0.5.0
 
 ### Added

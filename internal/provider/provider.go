@@ -114,6 +114,7 @@ func (p *AtlasProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewOrganizationPolicyResource,
 		NewOrgSettingsSchemaResource,
 		NewNotificationTemplateResource,
+		NewNotificationCategoryResource,
 		NewEmailTemplateResource,
 	}
 }
