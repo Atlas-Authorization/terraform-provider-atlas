@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -92,9 +93,11 @@ func (r *resourceServerResource) Schema(_ context.Context, _ resource.SchemaRequ
 				Computed:            true,
 			},
 			"signing_alg": schema.StringAttribute{
-				MarkdownDescription: "JWT signing algorithm for issued tokens (e.g. RS256).",
-				Optional:            true,
-				Computed:            true,
+				MarkdownDescription: "JWT signing algorithm for issued tokens. Atlas signs machine tokens with the " +
+					"instance RS256 key, so the only accepted value is `RS256` (the default).",
+				Optional:   true,
+				Computed:   true,
+				Validators: []validator.String{signingAlgValidator{}},
 			},
 			"created_at": schema.Int64Attribute{
 				MarkdownDescription: "Creation time (epoch milliseconds).",
@@ -204,7 +207,7 @@ func (r *resourceServerResource) mapToState(rs *client.ResourceServer, m *resour
 	m.Name = types.StringValue(rs.Name)
 	m.Scopes = scopesFromAPI(rs.Scopes)
 	m.TokenTTLSeconds = types.Int64Value(rs.TokenTTLSeconds)
-	m.SigningAlg = types.StringValue(rs.SigningAlg)
+	m.SigningAlg = types.StringValue(resourceServerSigningAlg(rs.SigningAlg))
 	m.CreatedAt = types.Int64Value(rs.CreatedAt)
 	m.UpdatedAt = types.Int64Value(rs.UpdatedAt)
 }
@@ -233,4 +236,38 @@ func scopesFromAPI(in []client.ResourceServerScope) []resourceServerScopeModel {
 		})
 	}
 	return out
+}
+
+// defaultResourceServerSigningAlg is the algorithm Atlas signs machine tokens
+// with (the instance RS256 key). The Backend API projection does not echo the
+// algorithm, so an empty value from the API means this default.
+const defaultResourceServerSigningAlg = "RS256"
+
+func resourceServerSigningAlg(fromAPI string) string {
+	if fromAPI == "" {
+		return defaultResourceServerSigningAlg
+	}
+	return fromAPI
+}
+
+// signingAlgValidator rejects any algorithm other than the one Atlas signs
+// with: the API ignores the field, so another value could never be honoured.
+type signingAlgValidator struct{}
+
+func (signingAlgValidator) Description(context.Context) string {
+	return "must be " + defaultResourceServerSigningAlg + " (the algorithm Atlas signs machine tokens with)"
+}
+
+func (v signingAlgValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v signingAlgValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if req.ConfigValue.ValueString() != defaultResourceServerSigningAlg {
+		resp.Diagnostics.AddAttributeError(req.Path, "Unsupported signing_alg",
+			"signing_alg "+req.ConfigValue.String()+" "+v.Description(ctx)+".")
+	}
 }

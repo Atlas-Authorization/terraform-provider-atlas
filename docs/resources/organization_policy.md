@@ -24,6 +24,12 @@ resource "atlas_organization_policy" "acme" {
   allowed_sign_in_methods = ["password", "oauth_google", "saml"]
   ip_allowlist            = ["203.0.113.0/24"]
   max_session_age_seconds = 3600
+
+  end_user_pool = {
+    enabled             = true
+    require_approval    = true
+    allow_hosted_signup = true
+  }
 }
 ```
 
@@ -50,6 +56,25 @@ resource "atlas_organization_policy" "acme" {
 - `max_session_age_seconds` (Number) — Cap the absolute session lifetime for
   this org's members, in seconds (300 – 7776000). An org may only shorten, never
   extend.
+- `end_user_pool` (Attributes) — The organization's end-user (reader) pool:
+  external users attached to this organization. (see [below for nested
+  schema](#nestedatt--end_user_pool))
+
+Destroying the resource clears every policy key, so the organization inherits
+the instance policy again.
+
+<a id="nestedatt--end_user_pool"></a>
+### Nested Schema for `end_user_pool`
+
+Required:
+
+- `enabled` (Boolean) — Whether the organization runs a reader pool.
+
+Optional:
+
+- `require_approval` (Boolean) — Seat a self-signed-up reader as pending until
+  an organization admin approves.
+- `allow_hosted_signup` (Boolean) — Allow Atlas-hosted self-signup into the pool.
 
 ### Read-Only
 

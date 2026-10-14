@@ -41,3 +41,7 @@ output "google_redirect_uri" {
 - `allow_sign_up` (Boolean) — Whether new users may sign up with this provider.
 - `scopes` (List of String) — The configured scopes.
 - `updated_at` (Number) — Last update time (epoch milliseconds).
+- `icon_url` (String) — The button icon override, if one is set.
+- `mode` (String) — Effective sign-in mode: `native` or `redirect`.
+- `native` (Boolean) — Whether the provider supports the native (in-page) flow.
+- `setting_values` (Map of String) — Stored settings of a provider without credentials (wallet sign-ins: `domain`, `chain_ids`, `rpc_url`, …).

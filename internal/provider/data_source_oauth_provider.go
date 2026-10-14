@@ -38,6 +38,10 @@ type oauthProviderDataModel struct {
 	AllowSignUp   types.Bool   `tfsdk:"allow_sign_up"`
 	Scopes        types.List   `tfsdk:"scopes"`
 	UpdatedAt     types.Int64  `tfsdk:"updated_at"`
+	IconURL       types.String `tfsdk:"icon_url"`
+	Mode          types.String `tfsdk:"mode"`
+	Native        types.Bool   `tfsdk:"native"`
+	SettingValues types.Map    `tfsdk:"setting_values"`
 }
 
 func (d *oauthProviderDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -70,6 +74,10 @@ func (d *oauthProviderDataSource) Schema(_ context.Context, _ datasource.SchemaR
 			"allow_sign_up":  schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether new users may sign up with this provider."},
 			"scopes":         schema.ListAttribute{Computed: true, ElementType: types.StringType, MarkdownDescription: "The configured scopes."},
 			"updated_at":     schema.Int64Attribute{Computed: true, MarkdownDescription: "Last update time (epoch ms)."},
+			"icon_url":       schema.StringAttribute{Computed: true, MarkdownDescription: "The button icon override, if one is set."},
+			"mode":           schema.StringAttribute{Computed: true, MarkdownDescription: "Effective sign-in mode: `native` or `redirect`."},
+			"native":         schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether the provider supports the native (in-page) sign-in flow."},
+			"setting_values": schema.MapAttribute{Computed: true, ElementType: types.StringType, MarkdownDescription: "Stored settings of a provider without credentials (wallet sign-ins: domain, chain_ids, rpc_url, …)."},
 		},
 	}
 }
@@ -99,5 +107,12 @@ func (d *oauthProviderDataSource) Read(ctx context.Context, req datasource.ReadR
 	config.AllowSignUp = types.BoolValue(c.AllowSignUp)
 	config.Scopes = stringSliceToList(ctx, c.Scopes, &resp.Diagnostics)
 	config.UpdatedAt = int64PtrToValue(c.UpdatedAt)
+	config.IconURL = stringPtrToValue(nonEmpty(c.IconURL))
+	config.Mode = types.StringValue(c.Mode)
+	config.Native = types.BoolValue(c.Native)
+	if c.SettingValues == nil {
+		c.SettingValues = map[string]string{}
+	}
+	config.SettingValues = stringMapToMap(ctx, c.SettingValues, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }

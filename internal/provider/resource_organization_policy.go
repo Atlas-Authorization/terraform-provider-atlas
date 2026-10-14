@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/atlas/terraform-provider-atlas/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -11,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 var (
@@ -35,6 +37,13 @@ type organizationPolicyModel struct {
 	AllowedSignInMethods  types.Set    `tfsdk:"allowed_sign_in_methods"`
 	IPAllowlist           types.Set    `tfsdk:"ip_allowlist"`
 	MaxSessionAgeSeconds  types.Int64  `tfsdk:"max_session_age_seconds"`
+	EndUserPool           types.Object `tfsdk:"end_user_pool"`
+}
+
+var endUserPoolAttrTypes = map[string]attr.Type{
+	"enabled":             types.BoolType,
+	"require_approval":    types.BoolType,
+	"allow_hosted_signup": types.BoolType,
 }
 
 func (r *organizationPolicyResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -98,6 +107,26 @@ func (r *organizationPolicyResource) Schema(_ context.Context, _ resource.Schema
 				Optional: true,
 				Computed: true,
 			},
+			"end_user_pool": schema.SingleNestedAttribute{
+				MarkdownDescription: "The organization's end-user (reader) pool: external users attached to this " +
+					"organization. Unset = no pool (the default).",
+				Optional: true,
+				Computed: true,
+				Attributes: map[string]schema.Attribute{
+					"enabled": schema.BoolAttribute{
+						MarkdownDescription: "Whether this organization runs a reader pool.",
+						Required:            true,
+					},
+					"require_approval": schema.BoolAttribute{
+						MarkdownDescription: "Seat a self-signed-up reader as pending until an organization admin approves.",
+						Optional:            true,
+					},
+					"allow_hosted_signup": schema.BoolAttribute{
+						MarkdownDescription: "Allow Atlas-hosted self-signup into this organization's reader pool.",
+						Optional:            true,
+					},
+				},
+			},
 		},
 	}
 }
@@ -119,6 +148,19 @@ func (r *organizationPolicyResource) patchFromPlan(ctx context.Context, plan *or
 		body.IPAllowlist = setToStringSlice(ctx, plan.IPAllowlist, diags)
 		if body.IPAllowlist == nil {
 			body.IPAllowlist = []string{}
+		}
+	}
+	if !plan.EndUserPool.IsNull() && !plan.EndUserPool.IsUnknown() {
+		var pool struct {
+			Enabled           types.Bool `tfsdk:"enabled"`
+			RequireApproval   types.Bool `tfsdk:"require_approval"`
+			AllowHostedSignup types.Bool `tfsdk:"allow_hosted_signup"`
+		}
+		diags.Append(plan.EndUserPool.As(ctx, &pool, basetypes.ObjectAsOptions{})...)
+		body.EndUserPool = &client.EndUserPoolPolicy{
+			Enabled:           pool.Enabled.ValueBool(),
+			RequireApproval:   optionalBool(pool.RequireApproval),
+			AllowHostedSignup: optionalBool(pool.AllowHostedSignup),
 		}
 	}
 	return body
@@ -189,13 +231,12 @@ func (r *organizationPolicyResource) Delete(ctx context.Context, req resource.De
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Empty slices + nil scalars clear the list fields; the scalar overrides are
-	// left as-is (there is no "unset" for them beyond setting a value), which is
-	// acceptable since the org is being unmanaged.
-	_, err := r.client.SetOrgPolicy(ctx, state.OrganizationID.ValueString(), client.OrgPolicyPatch{
-		AllowedSignInMethods: []string{},
-		IPAllowlist:          []string{},
-	})
+	// An explicit null clears each key, so the org inherits the instance policy again.
+	clear := map[string]interface{}{}
+	for _, k := range client.OrgPolicyKeys {
+		clear[k] = nil
+	}
+	_, err := r.client.SetOrgPolicyRaw(ctx, state.OrganizationID.ValueString(), clear)
 	if err != nil && !client.IsNotFound(err) {
 		resp.Diagnostics.AddError("Unable to clear organization policy", err.Error())
 	}
@@ -215,4 +256,15 @@ func (r *organizationPolicyResource) mapToState(ctx context.Context, orgID strin
 	m.MaxSessionAgeSeconds = int64PtrToValue(p.MaxSessionAgeSeconds)
 	m.AllowedSignInMethods = stringSliceToSet(ctx, p.AllowedSignInMethods, diags)
 	m.IPAllowlist = stringSliceToSet(ctx, p.IPAllowlist, diags)
+	if p.EndUserPool == nil {
+		m.EndUserPool = types.ObjectNull(endUserPoolAttrTypes)
+		return
+	}
+	obj, d := types.ObjectValue(endUserPoolAttrTypes, map[string]attr.Value{
+		"enabled":             types.BoolValue(p.EndUserPool.Enabled),
+		"require_approval":    boolPtrToValue(p.EndUserPool.RequireApproval),
+		"allow_hosted_signup": boolPtrToValue(p.EndUserPool.AllowHostedSignup),
+	})
+	diags.Append(d...)
+	m.EndUserPool = obj
 }

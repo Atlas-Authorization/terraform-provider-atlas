@@ -2,6 +2,9 @@ package provider
 
 import (
 	"context"
+	"regexp"
+	"sort"
+	"strings"
 
 	"github.com/atlas/terraform-provider-atlas/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -10,8 +13,34 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
+
+// roleKeyPattern mirrors the API's role-key rule: an `org:` prefix followed by
+// a lowercase identifier (2-32 chars). Validating at plan time turns the API's
+// 400 into an early, attribute-scoped error.
+var roleKeyPattern = regexp.MustCompile(`^org:[a-z][a-z0-9_]{1,31}$`)
+
+type roleKeyValidator struct{}
+
+func (roleKeyValidator) Description(context.Context) string {
+	return `must look like "org:billing_admin": an "org:" prefix, then a lowercase letter and 1-31 more lowercase letters, digits or underscores`
+}
+
+func (v roleKeyValidator) MarkdownDescription(ctx context.Context) string {
+	return v.Description(ctx)
+}
+
+func (v roleKeyValidator) ValidateString(ctx context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
+		return
+	}
+	if !roleKeyPattern.MatchString(req.ConfigValue.ValueString()) {
+		resp.Diagnostics.AddAttributeError(req.Path, "Invalid role key",
+			"Role key "+req.ConfigValue.String()+" "+v.Description(ctx)+".")
+	}
+}
 
 var (
 	_ resource.Resource                = &roleResource{}
@@ -54,9 +83,11 @@ func (r *roleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"key": schema.StringAttribute{
-				MarkdownDescription: "Stable role key (e.g. billing_admin). Immutable; changing it forces replacement.",
-				Required:            true,
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				MarkdownDescription: "Stable role key, `org:` prefixed and lowercase (e.g. `org:billing_admin`). Immutable; " +
+					"changing it forces replacement.",
+				Required:      true,
+				Validators:    []validator.String{roleKeyValidator{}},
+				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Human-readable label.",
@@ -67,10 +98,11 @@ func (r *roleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Optional:            true,
 			},
 			"permissions": schema.SetAttribute{
-				MarkdownDescription: "Permission keys granted by the role. Keys not defined on the instance are dropped by the API.",
-				Optional:            true,
-				Computed:            true,
-				ElementType:         types.StringType,
+				MarkdownDescription: "Permission keys granted by the role. Every key must already be defined on the instance (the API " +
+					"drops undefined keys; the provider reports them as an error).",
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
 			},
 			"is_system": schema.BoolAttribute{
 				MarkdownDescription: "True for a built-in system role.",
@@ -99,11 +131,41 @@ func (r *roleResource) Create(ctx context.Context, req resource.CreateRequest, r
 		resp.Diagnostics.AddError("Unable to create role", err.Error())
 		return
 	}
-	// The applied permission set may differ (unknown keys dropped): re-read it so
-	// state reflects what the API actually stored.
-	created.Permissions = permissions
-	r.mapToState(ctx, created, &plan, &resp.Diagnostics)
+	// The create response echoes the REQUESTED permissions, but the API silently
+	// drops keys not defined on the instance: re-read so state holds what was
+	// actually stored, and fail loudly if anything was dropped (otherwise every
+	// later plan would show a phantom diff re-adding them).
+	fetched, err := r.client.GetRole(ctx, created.ID)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to read role after create", err.Error())
+		return
+	}
+	r.mapToState(ctx, fetched, &plan, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	addDroppedPermissionsError(permissions, fetched.Permissions, &resp.Diagnostics)
+}
+
+// addDroppedPermissionsError reports requested permission keys the API did not
+// store. The API drops keys that are not defined on the instance instead of
+// rejecting them.
+func addDroppedPermissionsError(requested, applied []string, diags *diag.Diagnostics) {
+	stored := make(map[string]bool, len(applied))
+	for _, p := range applied {
+		stored[p] = true
+	}
+	var dropped []string
+	for _, p := range requested {
+		if !stored[p] {
+			dropped = append(dropped, p)
+		}
+	}
+	if len(dropped) == 0 {
+		return
+	}
+	sort.Strings(dropped)
+	diags.AddAttributeError(path.Root("permissions"), "Undefined role permissions",
+		"Atlas did not store these permissions because they are not defined on the instance: "+
+			strings.Join(dropped, ", ")+". Define them first (dashboard, or POST /v1/permissions), then apply again.")
 }
 
 func (r *roleResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -153,6 +215,7 @@ func (r *roleResource) Update(ctx context.Context, req resource.UpdateRequest, r
 
 	r.mapToState(ctx, updated, &plan, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	addDroppedPermissionsError(permissions, applied, &resp.Diagnostics)
 }
 
 func (r *roleResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

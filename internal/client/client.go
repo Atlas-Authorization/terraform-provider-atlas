@@ -34,6 +34,9 @@ type Client struct {
 	// SecretKey is the instance secret key (sk_...). Sent as a bearer token on
 	// every request and never placed in a URL or logged.
 	SecretKey string
+	// PlatformKey is the platform key (psk_...) used for the /v1/platform/*
+	// surface (Sign in with Atlas apps). Optional; only platform resources need it.
+	PlatformKey string
 	// HTTP is the underlying client; a caller may inject one for tests.
 	HTTP *http.Client
 	// UserAgent identifies the provider build to the API.
@@ -116,6 +119,28 @@ func IsNotFound(err error) bool {
 // do performs a single request. body is JSON-encoded when non-nil; the decoded
 // response is written into out when out is non-nil and the body is non-empty.
 func (c *Client) do(ctx context.Context, method, path string, body, out interface{}) error {
+	if c.SecretKey == "" {
+		return &APIError{Status: http.StatusUnauthorized, Errors: []ErrorItem{{
+			Code:    "MISSING_SECRET_KEY",
+			Message: "this resource needs an instance secret key (sk_...): set the provider's secret_key or ATLAS_SECRET_KEY",
+		}}}
+	}
+	return c.doWithKey(ctx, c.SecretKey, method, path, body, out)
+}
+
+// doPlatform performs a request on the platform surface, signed with the
+// platform key (psk_...).
+func (c *Client) doPlatform(ctx context.Context, method, path string, body, out interface{}) error {
+	if c.PlatformKey == "" {
+		return &APIError{Status: http.StatusUnauthorized, Errors: []ErrorItem{{
+			Code:    "MISSING_PLATFORM_KEY",
+			Message: "this resource needs a platform key (psk_...): set the provider's platform_key or ATLAS_PLATFORM_KEY",
+		}}}
+	}
+	return c.doWithKey(ctx, c.PlatformKey, method, path, body, out)
+}
+
+func (c *Client) doWithKey(ctx context.Context, key, method, path string, body, out interface{}) error {
 	var reader io.Reader
 	if body != nil {
 		encoded, err := json.Marshal(body)
@@ -130,7 +155,7 @@ func (c *Client) do(ctx context.Context, method, path string, body, out interfac
 	if err != nil {
 		return fmt.Errorf("building request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+c.SecretKey)
+	req.Header.Set("Authorization", "Bearer "+key)
 	req.Header.Set("Accept", "application/json")
 	if c.UserAgent != "" {
 		req.Header.Set("User-Agent", c.UserAgent)

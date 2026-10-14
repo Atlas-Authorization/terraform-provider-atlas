@@ -114,7 +114,7 @@ resource "atlas_webhook_endpoint" "events" {
 
 # ── A custom organization role ───────────────────────────────────────────────
 resource "atlas_role" "billing_admin" {
-  key         = "billing_admin"
+  key         = "org:billing_admin"
   name        = "Billing Admin"
   description = "Manages billing and invoices"
   permissions = ["org:billing:manage", "org:invoices:write"]

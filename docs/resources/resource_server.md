@@ -37,7 +37,7 @@ resource "atlas_resource_server" "billing_api" {
 
 - `scopes` (Block List) — Scopes this API defines. Each block has `value` (String, required) and `description` (String, optional).
 - `token_ttl_seconds` (Number) — Lifetime of machine tokens for this API, in seconds.
-- `signing_alg` (String) — JWT signing algorithm for issued tokens (e.g. `RS256`).
+- `signing_alg` (String) — JWT signing algorithm for issued tokens. Atlas signs machine tokens with the instance RS256 key, so the only accepted value is `RS256` (the default).
 
 ### Read-Only
 

@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -17,6 +18,7 @@ var (
 	_ resource.Resource                = &webhookEndpointResource{}
 	_ resource.ResourceWithImportState = &webhookEndpointResource{}
 	_ resource.ResourceWithConfigure   = &webhookEndpointResource{}
+	_ resource.ResourceWithModifyPlan  = &webhookEndpointResource{}
 )
 
 // NewWebhookEndpointResource is the factory registered with the provider.
@@ -32,6 +34,8 @@ type webhookEndpointModel struct {
 	EnabledEvents types.List   `tfsdk:"enabled_events"`
 	Active        types.Bool   `tfsdk:"active"`
 	Secret        types.String `tfsdk:"secret"`
+	RotateTrigger types.String `tfsdk:"rotate_secret_trigger"`
+	FailingSince  types.Int64  `tfsdk:"failing_since"`
 	DisabledAt    types.Int64  `tfsdk:"disabled_at"`
 	CreatedAt     types.Int64  `tfsdk:"created_at"`
 }
@@ -47,9 +51,9 @@ func (r *webhookEndpointResource) Configure(_ context.Context, req resource.Conf
 func (r *webhookEndpointResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "A webhook endpoint that receives signed Atlas events. The signing secret (`whsec_...`) is " +
-			"revealed once, on create, and stored (sensitive) in state. Changing `url` or `enabled_events` updates the " +
-			"endpoint IN PLACE (via the Backend API PATCH route) and PRESERVES the signing secret, so deliveries keep " +
-			"verifying without a re-subscription.",
+			"stored (sensitive) in state: it is returned on create, and read back from Atlas on import. Changing `url`, " +
+			"`enabled_events` or `active` updates the endpoint IN PLACE and PRESERVES the signing secret, so deliveries " +
+			"keep verifying. Change `rotate_secret_trigger` to rotate the secret in place.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:      true,
@@ -66,13 +70,26 @@ func (r *webhookEndpointResource) Schema(_ context.Context, _ resource.SchemaReq
 				ElementType:         types.StringType,
 			},
 			"secret": schema.StringAttribute{
-				MarkdownDescription: "The signing secret, revealed only on create.",
-				Computed:            true,
-				Sensitive:           true,
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				MarkdownDescription: "The signing secret. Returned on create and on rotation; on import it is read back " +
+					"from Atlas (an audited reveal).",
+				Computed:      true,
+				Sensitive:     true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"rotate_secret_trigger": schema.StringAttribute{
+				MarkdownDescription: "Any value; changing it rotates the signing secret in place (the new one lands in " +
+					"`secret`). Deliveries signed with the old secret stop verifying at once, so update your verifier.",
+				Optional: true,
 			},
 			"active": schema.BoolAttribute{
-				MarkdownDescription: "Whether the endpoint is currently active.",
+				MarkdownDescription: "Whether the endpoint receives deliveries. Atlas switches an endpoint off after " +
+					"repeated failures; set `true` to switch it back on (or `false` to pause it).",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+			},
+			"failing_since": schema.Int64Attribute{
+				MarkdownDescription: "Start of the current run of failed deliveries (epoch ms), if any.",
 				Computed:            true,
 			},
 			"disabled_at": schema.Int64Attribute{
@@ -102,6 +119,17 @@ func (r *webhookEndpointResource) Create(ctx context.Context, req resource.Creat
 		resp.Diagnostics.AddError("Unable to create webhook endpoint", err.Error())
 		return
 	}
+	// A new endpoint starts active; pause it when the configuration says so.
+	if !plan.Active.IsNull() && !plan.Active.IsUnknown() && !plan.Active.ValueBool() {
+		secret := created.Secret
+		paused, err := r.client.UpdateWebhookEndpoint(ctx, created.ID, client.WebhookEndpointUpdate{Active: client.Ptr(false)})
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to pause webhook endpoint", err.Error())
+			return
+		}
+		created = paused
+		created.Secret = secret
+	}
 	r.mapToState(ctx, created, &plan, &resp.Diagnostics, true)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -121,8 +149,17 @@ func (r *webhookEndpointResource) Read(ctx context.Context, req resource.ReadReq
 		resp.Diagnostics.AddError("Unable to read webhook endpoint", err.Error())
 		return
 	}
-	// A list read never re-reveals the secret; keep the create-time value.
+	// A list read never re-reveals the secret; keep the stored value. After an
+	// import there is none, so read it back once via the audited reveal route.
 	r.mapToState(ctx, fetched, &state, &resp.Diagnostics, false)
+	if state.Secret.IsNull() || state.Secret.IsUnknown() {
+		secret, err := r.client.RevealWebhookSecret(ctx, fetched.ID)
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to read webhook signing secret", err.Error())
+			return
+		}
+		state.Secret = types.StringValue(secret)
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -155,6 +192,14 @@ func (r *webhookEndpointResource) Update(ctx context.Context, req resource.Updat
 	// forward from prior state.
 	r.mapToState(ctx, updated, &plan, &resp.Diagnostics, false)
 	plan.Secret = state.Secret
+	if !plan.RotateTrigger.Equal(state.RotateTrigger) {
+		secret, err := r.client.RotateWebhookSecret(ctx, state.ID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to rotate webhook signing secret", err.Error())
+			return
+		}
+		plan.Secret = types.StringValue(secret)
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -181,9 +226,15 @@ func (r *webhookEndpointResource) mapToState(ctx context.Context, e *client.Webh
 	m.URL = types.StringValue(e.URL)
 	m.EnabledEvents = stringSliceToList(ctx, e.EnabledEvents, diags)
 	m.Active = types.BoolValue(e.Active)
+	m.FailingSince = int64PtrToValue(e.FailingSince)
 	m.DisabledAt = int64PtrToValue(e.DisabledAt)
 	m.CreatedAt = types.Int64Value(e.CreatedAt)
 	if withSecret {
 		m.Secret = stringPtrToValue(e.Secret)
 	}
+}
+
+// ModifyPlan plans a new secret when rotate_secret_trigger changes.
+func (r *webhookEndpointResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	planSecretRotation(ctx, req, resp, "secret")
 }

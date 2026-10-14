@@ -271,6 +271,7 @@ type WebhookEndpoint struct {
 	URL           string   `json:"url"`
 	EnabledEvents []string `json:"enabled_events"`
 	Active        bool     `json:"active"`
+	FailingSince  *int64   `json:"failing_since"`
 	DisabledAt    *int64   `json:"disabled_at"`
 	CreatedAt     int64    `json:"created_at"`
 	Secret        *string  `json:"secret"`
@@ -290,18 +291,45 @@ func (c *Client) CreateWebhookEndpoint(ctx context.Context, url string, events [
 }
 
 // GetWebhookEndpoint reads by id. There is no single-GET route, so it lists and
-// filters — a disabled ("deleted") endpoint is treated as absent.
+// filters by id. Deletion is a real delete, so an endpoint the server
+// auto-disabled after repeated failures is still present (active = false).
 func (c *Client) GetWebhookEndpoint(ctx context.Context, id string) (*WebhookEndpoint, error) {
 	var out listEnvelope[WebhookEndpoint]
 	if err := c.do(ctx, http.MethodGet, "/v1/webhook_endpoints", nil, &out); err != nil {
 		return nil, err
 	}
 	for i := range out.Data {
-		if out.Data[i].ID == id && out.Data[i].Active {
+		if out.Data[i].ID == id {
 			return &out.Data[i], nil
 		}
 	}
 	return nil, &APIError{Status: http.StatusNotFound, Errors: []ErrorItem{{Code: "NOT_FOUND", Message: "Unknown webhook endpoint."}}}
+}
+
+// webhookSecret is the { object: "webhook_secret", secret } reveal/rotate body.
+type webhookSecret struct {
+	Secret string `json:"secret"`
+}
+
+// RevealWebhookSecret re-shows an endpoint's current signing secret (audited).
+// POST /v1/webhook_endpoints/:id/reveal_secret.
+func (c *Client) RevealWebhookSecret(ctx context.Context, id string) (string, error) {
+	var out webhookSecret
+	if err := c.do(ctx, http.MethodPost, "/v1/webhook_endpoints/"+url.PathEscape(id)+"/reveal_secret", nil, &out); err != nil {
+		return "", err
+	}
+	return out.Secret, nil
+}
+
+// RotateWebhookSecret mints a new signing secret, revealed once; deliveries
+// signed with the old one stop verifying immediately.
+// POST /v1/webhook_endpoints/:id/rotate_secret.
+func (c *Client) RotateWebhookSecret(ctx context.Context, id string) (string, error) {
+	var out webhookSecret
+	if err := c.do(ctx, http.MethodPost, "/v1/webhook_endpoints/"+url.PathEscape(id)+"/rotate_secret", nil, &out); err != nil {
+		return "", err
+	}
+	return out.Secret, nil
 }
 
 // WebhookEndpointUpdate is the PATCH /v1/webhook_endpoints/:id body. Every field
@@ -402,6 +430,13 @@ func (c *Client) SetRolePermissions(ctx context.Context, id string, permissions 
 		return nil, err
 	}
 	return out.Permissions, nil
+}
+
+// CreatePermission defines an instance permission (key like
+// "org:invoices:read"). A role can only hold permissions defined this way.
+func (c *Client) CreatePermission(ctx context.Context, key, name string) error {
+	body := map[string]string{"key": key, "name": name}
+	return c.do(ctx, http.MethodPost, "/v1/permissions", body, nil)
 }
 
 func (c *Client) DeleteRole(ctx context.Context, id string) error {
@@ -524,20 +559,32 @@ func (c *Client) DeleteDomain(ctx context.Context, id string) error {
 // write-only and never returned; only HasSecret reports its presence. The
 // redirect URI is DERIVED from the instance host, never accepted from a caller.
 type OAuthProvider struct {
-	Provider      string   `json:"provider"`
-	DisplayName   string   `json:"display_name"`
-	Category      string   `json:"category"`
-	Tier          string   `json:"tier"`
-	RedirectURI   string   `json:"redirect_uri"`
-	DefaultScopes []string `json:"default_scopes"`
-	Configured    bool     `json:"configured"`
-	ClientID      *string  `json:"client_id"`
-	HasSecret     bool     `json:"has_secret"`
-	Enabled       bool     `json:"enabled"`
-	AllowSignIn   bool     `json:"allow_sign_in"`
-	AllowSignUp   bool     `json:"allow_sign_up"`
-	Scopes        []string `json:"scopes"`
-	UpdatedAt     *int64   `json:"updated_at"`
+	Provider      string  `json:"provider"`
+	DisplayName   string  `json:"display_name"`
+	IconURL       *string `json:"icon_url"`
+	Mode          string  `json:"mode"`
+	Native        bool    `json:"native"`
+	Category      string  `json:"category"`
+	Tier          string  `json:"tier"`
+	RedirectURI   string  `json:"redirect_uri"`
+	AtlasCallback string  `json:"atlas_callback"`
+	// CustomRedirectURI is the tenant's own registered redirect URI, when one
+	// overrides Atlas's callback (set via settings.redirect_uri).
+	CustomRedirectURI *string  `json:"custom_redirect_uri"`
+	JavascriptOrigins []string `json:"javascript_origins"`
+	DefaultScopes     []string `json:"default_scopes"`
+	// SettingValues are the stored settings of a credential-less provider (the
+	// SIWE / SIWS / SIWF wallet verifiers: domain, chain_ids, rpc_url, …); empty
+	// for every other provider.
+	SettingValues map[string]string `json:"setting_values"`
+	Configured    bool              `json:"configured"`
+	ClientID      *string           `json:"client_id"`
+	HasSecret     bool              `json:"has_secret"`
+	Enabled       bool              `json:"enabled"`
+	AllowSignIn   bool              `json:"allow_sign_in"`
+	AllowSignUp   bool              `json:"allow_sign_up"`
+	Scopes        []string          `json:"scopes"`
+	UpdatedAt     *int64            `json:"updated_at"`
 }
 
 // OAuthProviderWrite is the idempotent PUT payload. Values is keyed by the
@@ -545,10 +592,18 @@ type OAuthProvider struct {
 // the API distributes them to the id column, the encrypted secret column and the
 // config blob per the provider's real credential shape. A nil Scopes lets the
 // API fall back to the provider's default scopes.
+//
+// DisplayName / IconURL / Mode are per-provider display overrides (an empty
+// string clears one, back to the catalog default). A credential-less provider
+// (Steam, the SIWE / SIWS / SIWF wallets) accepts only Settings and the display
+// overrides — Values and Scopes must be omitted for it.
 type OAuthProviderWrite struct {
-	Values   map[string]string `json:"values,omitempty"`
-	Settings map[string]string `json:"settings,omitempty"`
-	Scopes   []string          `json:"scopes,omitempty"`
+	Values      map[string]string `json:"values,omitempty"`
+	Settings    map[string]string `json:"settings,omitempty"`
+	Scopes      []string          `json:"scopes,omitempty"`
+	DisplayName *string           `json:"display_name,omitempty"`
+	IconURL     *string           `json:"icon_url,omitempty"`
+	Mode        *string           `json:"mode,omitempty"`
 }
 
 // GetOAuthProvider reads one provider by catalog key.

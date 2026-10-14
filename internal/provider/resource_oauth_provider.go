@@ -47,7 +47,15 @@ type oauthProviderModel struct {
 	Configured  types.Bool   `tfsdk:"configured"`
 	RedirectURI types.String `tfsdk:"redirect_uri"`
 	DisplayName types.String `tfsdk:"display_name"`
+	IconURL     types.String `tfsdk:"icon_url"`
+	Mode        types.String `tfsdk:"mode"`
 	UpdatedAt   types.Int64  `tfsdk:"updated_at"`
+
+	SettingValues     types.Map    `tfsdk:"setting_values"`
+	Native            types.Bool   `tfsdk:"native"`
+	AtlasCallback     types.String `tfsdk:"atlas_callback"`
+	CustomRedirectURI types.String `tfsdk:"custom_redirect_uri"`
+	JavascriptOrigins types.List   `tfsdk:"javascript_origins"`
 }
 
 func (r *oauthProviderResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -74,15 +82,21 @@ func (r *oauthProviderResource) Schema(_ context.Context, _ resource.SchemaReque
 			},
 			"credentials": schema.MapAttribute{
 				MarkdownDescription: "The provider credentials, keyed by the provider's own field keys — typically " +
-					"`client_id` and `client_secret`. The secret is write-only; never returned by the API.",
-				Required:    true,
+					"`client_id` and `client_secret`. The secret is write-only; never returned by the API. Omit it for " +
+					"providers without credentials (Steam and the `siwe` / `siws` / `siwf` wallet sign-ins) and to " +
+					"manage only the button's `display_name` / `icon_url` / `mode`.",
+				Optional:    true,
 				Sensitive:   true,
 				ElementType: types.StringType,
 			},
 			"settings": schema.MapAttribute{
-				MarkdownDescription: "Optional provider-specific settings (e.g. a team/tenant domain), keyed by setting key. Write-only; not read back.",
-				Optional:            true,
-				ElementType:         types.StringType,
+				MarkdownDescription: "Optional provider-specific settings, keyed by setting key: a team/tenant domain, " +
+					"`redirect_uri` (your own registered callback), or for the wallet sign-ins their verifier settings — " +
+					"`siwe`: `domain`, `chain_ids` (e.g. `\"1,10\"`), `rpc_url`; `siws`: `domain`, `networks`; `siwf`: " +
+					"`domain`, `chain_ids`, `optimism_rpc_url`, `id_registry_address`. Kept as configured; the values " +
+					"Atlas stored (normalized) are read back in `setting_values`.",
+				Optional:    true,
+				ElementType: types.StringType,
 			},
 			"scopes": schema.ListAttribute{
 				MarkdownDescription: "OAuth scopes to request. Defaults to the provider's catalog default scopes when unset.",
@@ -118,8 +132,37 @@ func (r *oauthProviderResource) Schema(_ context.Context, _ resource.SchemaReque
 			"has_secret":   schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether a client secret is stored."},
 			"configured":   schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether the provider has credentials configured."},
 			"redirect_uri": schema.StringAttribute{Computed: true, MarkdownDescription: "The redirect/callback URI derived from your instance host. Register this exact string at the provider."},
-			"display_name": schema.StringAttribute{Computed: true, MarkdownDescription: "Human-readable provider name from the catalog."},
-			"updated_at":   schema.Int64Attribute{Computed: true, MarkdownDescription: "Last update time (epoch ms)."},
+			"display_name": schema.StringAttribute{
+				MarkdownDescription: "Button label. Set it to re-brand the provider everywhere Atlas draws it; unset " +
+					"keeps the catalog name (read back here).",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"icon_url": schema.StringAttribute{
+				MarkdownDescription: "Button icon override: an http(s) or `data:image/...` URL.",
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"mode": schema.StringAttribute{
+				MarkdownDescription: "Sign-in mode: `native` (in-page button such as Google One Tap, for providers that " +
+					"support it) or `redirect`. Unset keeps the catalog default (read back here).",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
+			"setting_values": schema.MapAttribute{
+				MarkdownDescription: "The stored settings of a provider without credentials (the wallet sign-ins), as normalized by Atlas.",
+				Computed:            true,
+				ElementType:         types.StringType,
+			},
+			"native":              schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether the provider supports the native (in-page) sign-in flow."},
+			"atlas_callback":      schema.StringAttribute{Computed: true, MarkdownDescription: "Atlas's own callback URL for this provider."},
+			"custom_redirect_uri": schema.StringAttribute{Computed: true, MarkdownDescription: "Your own registered redirect URI, when `settings.redirect_uri` overrides Atlas's callback."},
+			"javascript_origins": schema.ListAttribute{Computed: true, ElementType: types.StringType,
+				MarkdownDescription: "For a native provider, the Authorized JavaScript origins to register at the provider console."},
+			"updated_at": schema.Int64Attribute{Computed: true, MarkdownDescription: "Last update time (epoch ms)."},
 		},
 	}
 }
@@ -155,7 +198,7 @@ func (r *oauthProviderResource) Read(ctx context.Context, req resource.ReadReque
 	// Credentials removed out of band (or never configured) means the resource is
 	// gone as far as Terraform is concerned — the GET still returns the catalog
 	// entry, so distinguish on `configured`.
-	if !fetched.Configured {
+	if oauthProviderGone(fetched, &state) {
 		resp.State.RemoveResource(ctx)
 		return
 	}
@@ -182,10 +225,7 @@ func (r *oauthProviderResource) Delete(ctx context.Context, req resource.DeleteR
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if err := r.client.DeleteOAuthProvider(ctx, state.Provider.ValueString()); err != nil {
-		if client.IsNotFound(err) {
-			return
-		}
+	if err := r.client.DeleteOAuthProvider(ctx, state.Provider.ValueString()); err != nil && !client.IsNotFound(err) {
 		resp.Diagnostics.AddError("Unable to delete OAuth provider", err.Error())
 	}
 }
@@ -204,10 +244,18 @@ func (r *oauthProviderResource) ImportState(ctx context.Context, req resource.Im
 func (r *oauthProviderResource) apply(ctx context.Context, m *oauthProviderModel, diags *diag.Diagnostics) {
 	providerKey := m.Provider.ValueString()
 
+	hasCredentials := !m.Credentials.IsNull() && !m.Credentials.IsUnknown()
 	body := client.OAuthProviderWrite{
-		Values:   mapToStringMap(ctx, m.Credentials, diags),
-		Settings: mapToStringMap(ctx, m.Settings, diags),
-		Scopes:   listToStringSlice(ctx, m.Scopes, diags),
+		Settings:    mapToStringMap(ctx, m.Settings, diags),
+		DisplayName: optionalString(m.DisplayName),
+		IconURL:     optionalString(m.IconURL),
+		Mode:        optionalString(m.Mode),
+	}
+	if hasCredentials {
+		// Credentials and scopes only apply to providers that have credentials;
+		// a credential-less provider (wallets, Steam) refuses them.
+		body.Values = mapToStringMap(ctx, m.Credentials, diags)
+		body.Scopes = listToStringSlice(ctx, m.Scopes, diags)
 	}
 	if diags.HasError() {
 		return
@@ -218,16 +266,21 @@ func (r *oauthProviderResource) apply(ctx context.Context, m *oauthProviderModel
 	}
 
 	// Both scope flags default to true (does sign-in and sign-up). The API rejects
-	// "neither"; that error surfaces to the operator unchanged.
-	if err := r.client.SetOAuthProviderScope(ctx, providerKey,
-		boolOrDefault(m.AllowSignIn, true), boolOrDefault(m.AllowSignUp, true)); err != nil {
-		diags.AddError("Unable to set OAuth provider scope", err.Error())
-		return
+	// "neither"; that error surfaces to the operator unchanged. A provider without
+	// credentials is only scoped when the configuration asks for it.
+	if hasCredentials || isSet(m.AllowSignIn) || isSet(m.AllowSignUp) {
+		if err := r.client.SetOAuthProviderScope(ctx, providerKey,
+			boolOrDefault(m.AllowSignIn, true), boolOrDefault(m.AllowSignUp, true)); err != nil {
+			diags.AddError("Unable to set OAuth provider scope", err.Error())
+			return
+		}
 	}
 
-	if err := r.client.SetOAuthProviderEnabled(ctx, providerKey, boolOrDefault(m.Enabled, false)); err != nil {
-		diags.AddError("Unable to set OAuth provider enabled state", err.Error())
-		return
+	if hasCredentials || isSet(m.Enabled) {
+		if err := r.client.SetOAuthProviderEnabled(ctx, providerKey, boolOrDefault(m.Enabled, false)); err != nil {
+			diags.AddError("Unable to set OAuth provider enabled state", err.Error())
+			return
+		}
 	}
 
 	fetched, err := r.client.GetOAuthProvider(ctx, providerKey)
@@ -258,9 +311,37 @@ func mapOAuthProviderToState(ctx context.Context, c *client.OAuthProvider, m *oa
 	m.Configured = types.BoolValue(c.Configured)
 	m.RedirectURI = types.StringValue(c.RedirectURI)
 	m.DisplayName = types.StringValue(c.DisplayName)
+	m.IconURL = stringPtrToValue(nonEmpty(c.IconURL))
+	m.Mode = types.StringValue(c.Mode)
+	if c.SettingValues == nil {
+		c.SettingValues = map[string]string{}
+	}
+	m.SettingValues = stringMapToMap(ctx, c.SettingValues, diags)
+	m.Native = types.BoolValue(c.Native)
+	m.AtlasCallback = types.StringValue(c.AtlasCallback)
+	m.CustomRedirectURI = stringPtrToValue(nonEmpty(c.CustomRedirectURI))
+	m.JavascriptOrigins = stringSliceToList(ctx, c.JavascriptOrigins, diags)
 	m.Enabled = types.BoolValue(c.Enabled)
 	m.AllowSignIn = types.BoolValue(c.AllowSignIn)
 	m.AllowSignUp = types.BoolValue(c.AllowSignUp)
 	m.Scopes = stringSliceToList(ctx, c.Scopes, diags)
 	m.UpdatedAt = int64PtrToValue(c.UpdatedAt)
+}
+
+// isSet reports whether an Optional+Computed bool was given a value.
+func isSet(v types.Bool) bool { return !v.IsNull() && !v.IsUnknown() }
+
+// oauthProviderGone decides whether a provider read back from the API no longer
+// exists as far as this resource is concerned. The GET always returns the
+// catalog entry, so presence is judged by what the resource manages: a
+// credentials-managing resource is gone when the credentials are; a
+// credential-less one (wallet settings, display overrides) is gone only when
+// nothing it set remains.
+func oauthProviderGone(c *client.OAuthProvider, state *oauthProviderModel) bool {
+	if !state.Credentials.IsNull() {
+		return !c.Configured
+	}
+	return !c.Configured && !c.Enabled && len(c.SettingValues) == 0 &&
+		(c.IconURL == nil || *c.IconURL == "") && state.Settings.IsNull() &&
+		state.DisplayName.IsNull() && state.Mode.IsNull()
 }

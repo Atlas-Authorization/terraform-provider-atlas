@@ -12,7 +12,7 @@ filters this list by id), `PATCH /v1/roles/:id` (label update),
 
 ```hcl
 resource "atlas_role" "billing_admin" {
-  key         = "billing_admin"
+  key         = "org:billing_admin"
   name        = "Billing Admin"
   description = "Manage invoices and subscriptions"
   permissions = ["org:invoices:manage", "org:subscriptions:read"]
@@ -23,13 +23,13 @@ resource "atlas_role" "billing_admin" {
 
 ### Required
 
-- `key` (String) — Stable role key (e.g. `billing_admin`). Immutable; changing it forces replacement.
+- `key` (String) — Stable role key, `org:` prefixed and lowercase (e.g. `org:billing_admin`). Immutable; changing it forces replacement.
 - `name` (String) — Human-readable label.
 
 ### Optional
 
 - `description` (String) — Optional description.
-- `permissions` (Set of String) — Permission keys granted by the role. Keys not defined on the instance are dropped by the API.
+- `permissions` (Set of String) — Permission keys granted by the role. Every key must already be defined on the instance (the API drops undefined keys; the provider reports them as an error).
 
 ### Read-Only
 

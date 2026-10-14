@@ -18,8 +18,8 @@ copy).
 ```hcl
 resource "atlas_email_template" "verification" {
   name    = "verification_code"
-  subject = "Your {{app_name}} verification code"
-  text    = "Your code is {{code}}. It expires in {{ttl_minutes}} minutes."
+  subject = "Your verification code"
+  text    = "Your code is {{code}}. Enter it to finish signing in."
 }
 ```
 

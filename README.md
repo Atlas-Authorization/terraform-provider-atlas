@@ -38,6 +38,10 @@ Both can also be set inline in the provider block (`api_url`, `secret_key`),
 with the inline value taking precedence over the environment. `secret_key` is
 marked sensitive. Every request is sent as `Authorization: Bearer <secret_key>`.
 
+Platform resources (`atlas_id_app`, Sign in with Atlas apps) use a platform key
+instead: set `platform_key` or `ATLAS_PLATFORM_KEY` (`psk_...`). A configuration
+that manages only platform resources may omit the secret key.
+
 ```hcl
 provider "atlas" {
   # api_url    = "https://api.atlasauth.net"   # or ATLAS_API_URL
@@ -88,7 +92,7 @@ terraform {
 | `atlas_sso_connection`    | Create / Read / Update / Delete | `oidc` / `saml` / `discourse`. Secrets (`oidc_client_secret`, `saml_idp_certificate`, `discourse_secret`) are write-only; the API never returns them, so presence is tracked via `has_secret` / `has_saml_certificate` / `has_discourse_secret`. `type` is immutable (forces replacement). |
 | `atlas_resource_server`   | Create / Read / Update / Delete | Machine-token audience. `identifier` is immutable (forces replacement). |
 | `atlas_jwt_template`      | Create / Read / Update / Delete | Custom-claims map. `name` is the key and is immutable (forces replacement). |
-| `atlas_webhook_endpoint`  | Create / Read / Delete     | Signing `secret` revealed only on create. The Backend API has **no update route**, so `url` and `enabled_events` force replacement. |
+| `atlas_webhook_endpoint`  | Create / Read / Update / Delete | `url`, `enabled_events` and `active` update in place (the signing secret is preserved). `rotate_secret_trigger` rotates the secret in place; on import the secret is read back. |
 | `atlas_role`              | Create / Read / Update / Delete | Custom org role. `key` is immutable (forces replacement); permissions are applied via a separate endpoint and unknown keys are dropped by the API. |
 | `atlas_organization`      | Create / Read / Update / Delete | `created_by` (an existing user id) is required and immutable (forces replacement). |
 | `atlas_organization_policy` | Create / Read / Update / Delete | Per-org security policy: `require_mfa`, `sso_required`, `allowed_sign_in_methods`, `ip_allowlist`, `max_session_age_seconds`, `session_idle_override_ms`. Keyed by `organization_id`. Atlas has no policy GET, so reads use an idempotent empty merge (records an audit entry per refresh). |
@@ -96,6 +100,12 @@ terraform {
 | `atlas_instance_config`   | Create / Read / Update (Delete = unmanage) | Singleton instance config. Manages `allowed_origins` + `auth_config` via `PATCH /v1/instance`. `auth_config` is a JSON string merged server-side. Destroy only stops managing it. |
 | `atlas_redirect_url`      | Create / Read / Delete     | Allowlisted OAuth/SSO redirect URL. No update route; the API normalises the stored `url`, which is immutable (forces replacement). |
 | `atlas_billing_plan`      | Create / Read / Update / Delete | End-user billing plan. A plan with no `stripe_price_id` is the free tier (`free` computed). `slug` → `pla` claim, `features` → `fea` claim. |
+| `atlas_entitlement_override` | Create / Read / Delete  | Sales-led plan / features / limits for a user or org, without Stripe. Grant-only, so every change replaces it. |
+| `atlas_instance_design`   | Create / Read / Update / Delete | Hosted sign-in page design (`design` JSON, compared semantically). Destroy removes the stored design. |
+| `atlas_organization_design` | Create / Read / Update / Delete | An organization's design override, layered over the instance design. |
+| `atlas_cookie_consent`    | Create / Read / Update / Delete | Cookie-consent banner (any CMP) on the hosted pages. Destroy turns it off. |
+| `atlas_email_provider` / `atlas_sms_provider` | Create / Read / Update / Delete | Bring-your-own messaging provider, one typed block per transport. Secrets are sensitive and write-only. |
+| `atlas_id_app`            | Create / Read / Update / Delete | Sign in with Atlas app (needs `platform_key`). Logout URIs, scopes, `branding` JSON (semantic diff), `rotate_secret_trigger`. |
 
 ## Data sources
 
@@ -103,6 +113,8 @@ terraform {
 |--------------------------|----------|
 | `atlas_oauth_client`     | by `id`  |
 | `atlas_resource_server`  | by `id`  |
+| `atlas_oauth_provider`   | by `provider_key` |
+| `atlas_instance_preflight` | the instance setup check (no arguments) |
 
 ## Terraform semantics
 
@@ -166,9 +178,8 @@ Without `TF_ACC` every `TestAcc*` case is skipped; when `TF_ACC` is set,
 Write-only secrets the API never returns — the OAuth `client_secret`, the SSO
 `oidc_client_secret` / `saml_idp_certificate` / `discourse_secret`, and the
 webhook `secret` — are excluded from the import round-trip via
-`ImportStateVerifyIgnore`. For `atlas_webhook_endpoint` and `atlas_domain` (no
-Backend API update route) the tests assert **replacement** (a changed `id`)
-rather than in-place update, and include a `_disappears` case that deletes the
+`ImportStateVerifyIgnore`. For `atlas_domain` (no Backend API update route) the
+tests assert **replacement** (a changed `id`) rather than in-place update, and include a `_disappears` case that deletes the
 object out of band and expects a non-empty follow-up plan.
 
 ## License

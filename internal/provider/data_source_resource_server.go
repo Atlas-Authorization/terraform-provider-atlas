@@ -83,7 +83,7 @@ func (d *resourceServerDataSource) Read(ctx context.Context, req datasource.Read
 	config.Name = types.StringValue(rs.Name)
 	config.Scopes = scopesFromAPI(rs.Scopes)
 	config.TokenTTLSeconds = types.Int64Value(rs.TokenTTLSeconds)
-	config.SigningAlg = types.StringValue(rs.SigningAlg)
+	config.SigningAlg = types.StringValue(resourceServerSigningAlg(rs.SigningAlg))
 	config.CreatedAt = types.Int64Value(rs.CreatedAt)
 	config.UpdatedAt = types.Int64Value(rs.UpdatedAt)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)

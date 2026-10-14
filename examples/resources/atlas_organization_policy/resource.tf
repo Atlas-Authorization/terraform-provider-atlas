@@ -6,4 +6,9 @@ resource "atlas_organization_policy" "acme" {
   allowed_sign_in_methods = ["password", "oauth_google", "saml"]
   ip_allowlist            = ["203.0.113.0/24"]
   max_session_age_seconds = 3600
+
+  end_user_pool = {
+    enabled          = true
+    require_approval = true
+  }
 }

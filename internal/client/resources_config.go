@@ -178,12 +178,20 @@ func (c *Client) DeleteBillingPlan(ctx context.Context, id string) error {
 // API returns under `policy`). Every field is an OPTIONAL tightening on top of
 // the instance policy; an absent field inherits instance behaviour.
 type OrgPolicy struct {
-	RequireMfa            *bool    `json:"requireMfa,omitempty"`
-	SsoRequired           *bool    `json:"ssoRequired,omitempty"`
-	SessionIdleOverrideMs *int64   `json:"sessionIdleOverrideMs,omitempty"`
-	AllowedSignInMethods  []string `json:"allowedSignInMethods,omitempty"`
-	IPAllowlist           []string `json:"ipAllowlist,omitempty"`
-	MaxSessionAgeSeconds  *int64   `json:"maxSessionAgeSeconds,omitempty"`
+	RequireMfa            *bool              `json:"requireMfa,omitempty"`
+	SsoRequired           *bool              `json:"ssoRequired,omitempty"`
+	SessionIdleOverrideMs *int64             `json:"sessionIdleOverrideMs,omitempty"`
+	AllowedSignInMethods  []string           `json:"allowedSignInMethods,omitempty"`
+	IPAllowlist           []string           `json:"ipAllowlist,omitempty"`
+	MaxSessionAgeSeconds  *int64             `json:"maxSessionAgeSeconds,omitempty"`
+	EndUserPool           *EndUserPoolPolicy `json:"endUserPool,omitempty"`
+}
+
+// EndUserPoolPolicy is the org's end-user (reader) pool configuration.
+type EndUserPoolPolicy struct {
+	Enabled           bool  `json:"enabled"`
+	RequireApproval   *bool `json:"requireApproval,omitempty"`
+	AllowHostedSignup *bool `json:"allowHostedSignup,omitempty"`
 }
 
 // OrgPolicyPatch is the PATCH body. A field left nil is omitted (untouched); the
@@ -191,12 +199,13 @@ type OrgPolicy struct {
 // CLEAR. The provider models set-or-inherit, so it only ever sends values or
 // omits — it does not emit nulls.
 type OrgPolicyPatch struct {
-	RequireMfa            *bool    `json:"requireMfa,omitempty"`
-	SsoRequired           *bool    `json:"ssoRequired,omitempty"`
-	SessionIdleOverrideMs *int64   `json:"sessionIdleOverrideMs,omitempty"`
-	AllowedSignInMethods  []string `json:"allowedSignInMethods,omitempty"`
-	IPAllowlist           []string `json:"ipAllowlist,omitempty"`
-	MaxSessionAgeSeconds  *int64   `json:"maxSessionAgeSeconds,omitempty"`
+	RequireMfa            *bool              `json:"requireMfa,omitempty"`
+	SsoRequired           *bool              `json:"ssoRequired,omitempty"`
+	SessionIdleOverrideMs *int64             `json:"sessionIdleOverrideMs,omitempty"`
+	AllowedSignInMethods  []string           `json:"allowedSignInMethods,omitempty"`
+	IPAllowlist           []string           `json:"ipAllowlist,omitempty"`
+	MaxSessionAgeSeconds  *int64             `json:"maxSessionAgeSeconds,omitempty"`
+	EndUserPool           *EndUserPoolPolicy `json:"endUserPool,omitempty"`
 }
 
 // orgPolicyResponse is the { organization_id, policy } envelope PATCH returns.
@@ -213,6 +222,22 @@ func (c *Client) SetOrgPolicy(ctx context.Context, orgID string, body OrgPolicyP
 		return nil, err
 	}
 	return &out.Policy, nil
+}
+
+// SetOrgPolicyRaw sends a raw PATCH body — used to CLEAR keys with explicit
+// JSON nulls (an OrgPolicyPatch omits nil fields and cannot express a clear).
+func (c *Client) SetOrgPolicyRaw(ctx context.Context, orgID string, body map[string]interface{}) (*OrgPolicy, error) {
+	var out orgPolicyResponse
+	if err := c.do(ctx, http.MethodPatch, "/v1/organizations/"+url.PathEscape(orgID)+"/policy", body, &out); err != nil {
+		return nil, err
+	}
+	return &out.Policy, nil
+}
+
+// OrgPolicyKeys lists every live org-policy key (camelCase), for a full clear.
+var OrgPolicyKeys = []string{
+	"requireMfa", "ssoRequired", "sessionIdleOverrideMs", "allowedSignInMethods",
+	"ipAllowlist", "maxSessionAgeSeconds", "endUserPool",
 }
 
 // GetOrgPolicy reads an organization's resolved policy. Atlas exposes no

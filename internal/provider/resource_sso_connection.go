@@ -328,9 +328,11 @@ func mapSsoToState(ctx context.Context, c *client.SsoConnection, m *ssoConnectio
 	m.CreatedAt = types.Int64Value(c.CreatedAt)
 	m.UpdatedAt = types.Int64Value(c.UpdatedAt)
 
-	// allowed_domains is Optional (not Computed): only reflect it when the model
-	// already tracks it, to avoid a null->[] plan-vs-state inconsistency.
-	if !m.AllowedDomains.IsNull() {
+	// allowed_domains is Optional (not Computed): reflect it when the model
+	// already tracks it or the API holds a non-empty list (an import, or domains
+	// added out of band). An empty server list leaves a null model null, which
+	// avoids a null->[] plan-vs-state inconsistency.
+	if !m.AllowedDomains.IsNull() || len(c.AllowedDomains) > 0 {
 		m.AllowedDomains = stringSliceToList(ctx, c.AllowedDomains, diags)
 	}
 	if len(m.ClaimRoleMappings) > 0 || len(c.ClaimRoleMappings) > 0 {

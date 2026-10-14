@@ -9,6 +9,7 @@ import (
 	"github.com/atlas/terraform-provider-atlas/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -215,4 +216,20 @@ func floatMapToMap(ctx context.Context, values map[string]float64, diags *diag.D
 	m, d := types.MapValueFrom(ctx, types.Float64Type, values)
 	diags.Append(d...)
 	return m
+}
+
+// planSecretRotation marks secretAttr unknown in the plan when the
+// rotate_secret_trigger attribute changes on an update, so the rotated secret
+// the apply returns is an expected new value rather than an inconsistency.
+func planSecretRotation(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse, secretAttr string) {
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return
+	}
+	var planned, prior types.String
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("rotate_secret_trigger"), &planned)...)
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("rotate_secret_trigger"), &prior)...)
+	if resp.Diagnostics.HasError() || planned.Equal(prior) {
+		return
+	}
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root(secretAttr), types.StringUnknown())...)
 }

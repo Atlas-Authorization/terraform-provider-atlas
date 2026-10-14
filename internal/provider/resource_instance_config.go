@@ -188,6 +188,12 @@ func (r *instanceConfigResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 	r.mapToState(ctx, fetched, &state, &resp.Diagnostics)
+	// After an import nothing is tracked yet: seed `auth_config` with the API's
+	// stored patch, exactly what Create/Update record when the user leaves it
+	// unset. An already-tracked value is kept verbatim (see mapToState).
+	if state.AuthConfig.IsNull() {
+		state.AuthConfig = jsonRawToValue(fetched.AuthConfig)
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 

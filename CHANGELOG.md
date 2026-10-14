@@ -4,6 +4,53 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
+## 0.7.0
+
+### Added
+
+- **`platform_key`** provider attribute (or `ATLAS_PLATFORM_KEY`) for platform
+  resources. A configuration that manages only platform resources may omit
+  `secret_key`.
+- **`atlas_id_app`** (new resource) — Sign in with Atlas apps on the shared
+  Atlas issuer: redirect and post-logout redirect URIs, back-/front-channel
+  logout URIs, allowed scopes, logo / homepage URLs and `branding` (theme,
+  colours, policy links, page `copy` and `design`) as a JSON object compared
+  semantically. `rotate_secret_trigger` rotates the client secret in place.
+- **`atlas_instance_design`** and **`atlas_organization_design`** (new
+  resources) — the hosted sign-in page design as a JSON document, with the
+  resolved design and contrast warnings read back.
+- **`atlas_cookie_consent`** (new resource) — the cookie-consent banner (any
+  CMP) on the hosted pages.
+- **`atlas_entitlement_override`** (new resource) — sales-led plan / features /
+  limits for a user or organization, without Stripe.
+- **`atlas_email_provider`** and **`atlas_sms_provider`** (new resources) —
+  bring-your-own messaging providers, one typed block per transport (Resend,
+  SES, SMTP, Brevo, Mailgun; Twilio, Vonage, MessageBird, Plivo, Telnyx, Sinch,
+  Infobip, ClickSend, Bandwidth, Amazon SNS). Secrets are sensitive and
+  write-only.
+- **`atlas_instance_preflight`** (new data source) — the instance setup check,
+  for use in `check` blocks and preconditions.
+- **`atlas_webhook_endpoint`**: `active` is now settable (pause, or switch an
+  auto-disabled endpoint back on), `rotate_secret_trigger` rotates the signing
+  secret in place, `failing_since` is read back, and the secret is read back
+  from Atlas on import.
+- **`atlas_oauth_provider`**: `display_name`, `icon_url` and `mode` inputs;
+  `credentials` is now optional, so providers without credentials (Steam and
+  the `siwe` / `siws` / `siwf` wallet sign-ins) can be configured with
+  `settings` alone; `setting_values`, `native`, `atlas_callback`,
+  `custom_redirect_uri` and `javascript_origins` are read back. The data
+  source gains `icon_url`, `mode`, `native` and `setting_values`.
+- **`atlas_organization_policy`**: `end_user_pool` (enabled,
+  require_approval, allow_hosted_signup).
+
+### Fixed
+
+- **`atlas_webhook_endpoint`**: an endpoint Atlas switched off after repeated
+  delivery failures no longer disappears from state (and is no longer
+  re-created on the next apply).
+- **`atlas_organization_policy`**: destroying the resource now clears every
+  policy key (previously the scalar overrides were left in place).
+
 ## 0.6.0
 
 ### Added

@@ -24,8 +24,9 @@ type AtlasProvider struct {
 
 // AtlasProviderModel maps the provider configuration block.
 type AtlasProviderModel struct {
-	APIURL    types.String `tfsdk:"api_url"`
-	SecretKey types.String `tfsdk:"secret_key"`
+	APIURL      types.String `tfsdk:"api_url"`
+	SecretKey   types.String `tfsdk:"secret_key"`
+	PlatformKey types.String `tfsdk:"platform_key"`
 }
 
 // New returns a provider factory for the given build version.
@@ -55,6 +56,12 @@ func (p *AtlasProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp
 				Optional:  true,
 				Sensitive: true,
 			},
+			"platform_key": schema.StringAttribute{
+				MarkdownDescription: "Atlas platform key (`psk_...`), needed only by platform resources such as " +
+					"`atlas_id_app` (Sign in with Atlas apps). Prefer the `ATLAS_PLATFORM_KEY` environment variable.",
+				Optional:  true,
+				Sensitive: true,
+			},
 		},
 	}
 }
@@ -79,17 +86,26 @@ func (p *AtlasProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	if !config.SecretKey.IsNull() && config.SecretKey.ValueString() != "" {
 		secretKey = config.SecretKey.ValueString()
 	}
-	if secretKey == "" {
+	platformKey := os.Getenv("ATLAS_PLATFORM_KEY")
+	if !config.PlatformKey.IsNull() && config.PlatformKey.ValueString() != "" {
+		platformKey = config.PlatformKey.ValueString()
+	}
+	// A configuration that manages only platform resources (atlas_id_app) needs
+	// no instance secret key; every other resource reports a clear error at
+	// apply time when the key it needs is missing.
+	if secretKey == "" && platformKey == "" {
 		resp.Diagnostics.AddAttributeError(
 			pathSecretKey(),
 			"Missing Atlas secret key",
 			"The provider needs an instance secret key (sk_...). Set it in the provider block's "+
-				"secret_key attribute or, preferably, the ATLAS_SECRET_KEY environment variable.",
+				"secret_key attribute or, preferably, the ATLAS_SECRET_KEY environment variable. "+
+				"(Platform-only configurations may set platform_key / ATLAS_PLATFORM_KEY instead.)",
 		)
 		return
 	}
 
 	c := client.New(apiURL, secretKey)
+	c.PlatformKey = platformKey
 	c.UserAgent = "terraform-provider-atlas/" + p.version
 
 	// Both resources and data sources receive the same configured client.
@@ -116,6 +132,13 @@ func (p *AtlasProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewNotificationTemplateResource,
 		NewNotificationCategoryResource,
 		NewEmailTemplateResource,
+		NewAtlasIDAppResource,
+		NewInstanceDesignResource,
+		NewOrganizationDesignResource,
+		NewCookieConsentResource,
+		NewEntitlementOverrideResource,
+		NewEmailProviderResource,
+		NewSMSProviderResource,
 	}
 }
 
@@ -124,5 +147,6 @@ func (p *AtlasProvider) DataSources(_ context.Context) []func() datasource.DataS
 		NewOAuthClientDataSource,
 		NewOAuthProviderDataSource,
 		NewResourceServerDataSource,
+		NewInstancePreflightDataSource,
 	}
 }
