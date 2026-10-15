@@ -83,6 +83,25 @@ type CookieConsent struct {
 	SiteID       *string  `json:"site_id"`
 	BlockingMode *string  `json:"blocking_mode"`
 	ExtraOrigins []string `json:"extra_origins"`
+	// SettingsLink is the footer "Cookie settings" link; nil when none is set.
+	SettingsLink *CookieSettingsLink `json:"settings_link"`
+}
+
+// CookieSettingsLink is the footer link that reopens the CMP's preferences.
+// RenderedAttributes (read-only) is what Atlas renders: Attributes with the
+// preset's trigger applied.
+type CookieSettingsLink struct {
+	Label              string            `json:"label"`
+	Preset             *string           `json:"preset"`
+	Attributes         map[string]string `json:"attributes"`
+	RenderedAttributes map[string]string `json:"rendered_attributes,omitempty"`
+}
+
+// CookieSettingsLinkWrite is the settings_link of a PUT body.
+type CookieSettingsLinkWrite struct {
+	Label      string            `json:"label"`
+	Preset     *string           `json:"preset,omitempty"`
+	Attributes map[string]string `json:"attributes,omitempty"`
 }
 
 // CookieConsentWrite is the PUT body; it replaces the whole setting.
@@ -92,6 +111,8 @@ type CookieConsentWrite struct {
 	SiteID       *string  `json:"site_id"`
 	BlockingMode *string  `json:"blocking_mode"`
 	ExtraOrigins []string `json:"extra_origins"`
+	// SettingsLink nil sends null, which removes the link (whole-setting replace).
+	SettingsLink *CookieSettingsLinkWrite `json:"settings_link"`
 }
 
 // GetCookieConsent reads the setting. GET /v1/instance/cookie_consent.
@@ -272,7 +293,13 @@ func (c *Client) PutMessagingProvider(ctx context.Context, channel string, body 
 }
 
 // DeleteMessagingProvider removes one channel's provider (back to the Atlas
-// default sender). DELETE /v1/messaging_providers/:channel.
-func (c *Client) DeleteMessagingProvider(ctx context.Context, channel string) error {
-	return c.do(ctx, http.MethodDelete, "/v1/messaging_providers/"+url.PathEscape(channel), nil, nil)
+// default sender). DELETE /v1/messaging_providers/:channel. Removing the email
+// provider while email-dependent features are on is refused with 409
+// EMAIL_PROVIDER_IN_USE unless force is true (?force=true).
+func (c *Client) DeleteMessagingProvider(ctx context.Context, channel string, force bool) error {
+	p := "/v1/messaging_providers/" + url.PathEscape(channel)
+	if force {
+		p += "?force=true"
+	}
+	return c.do(ctx, http.MethodDelete, p, nil, nil)
 }

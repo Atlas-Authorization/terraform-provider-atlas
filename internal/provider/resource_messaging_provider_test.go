@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -188,5 +189,85 @@ func TestMessagingProvider_exactlyOneTransport(t *testing.T) {
 	}
 	if smtp := s.Attributes["smtp"].(rschema.SingleNestedAttribute); smtp.Attributes["host"].IsSensitive() {
 		t.Error("non-secret settings must not be sensitive")
+	}
+}
+
+func TestEmailProvider_forceDestroyAndInUse(t *testing.T) {
+	ctx := context.Background()
+	c, api := newFakeAPI(t, func(call apiCall) (int, interface{}) {
+		if call.Method == http.MethodDelete {
+			if call.Query != "force=true" {
+				return 409, map[string]interface{}{"errors": []map[string]interface{}{{
+					"code": "EMAIL_PROVIDER_IN_USE", "message": "This email provider is the only way this instance can send email.",
+					"meta": map[string]interface{}{"features": []string{"Email code sign-in and step-up", "Password reset"}},
+				}}}
+			}
+			return 200, map[string]interface{}{"object": "messaging_provider", "channel": "email", "deleted": true}
+		}
+		return 200, map[string]interface{}{
+			"channel": "email", "transport": "resend", "from_address": nil, "status": "active",
+			"config": map[string]string{}, "secrets_set": map[string]bool{"api_key": true}, "updated_at": 1,
+		}
+	})
+	r := NewEmailProviderResource()
+	configureResource(t, r, c)
+	plan := messagingPlan(t, r, "", "resend", map[string]attr.Value{"api_key": types.StringValue("re_x")})
+	plan.SetAttribute(ctx, path.Root("force_destroy"), false)
+	state, resp := doCreate(t, r, plan)
+	mustOK(t, "create", resp.Diagnostics.HasError(), resp.Diagnostics)
+
+	// Refused: the error names the features and both ways out.
+	d := doDelete(t, r, state)
+	if !d.Diagnostics.HasError() {
+		t.Fatal("a 409 EMAIL_PROVIDER_IN_USE must fail the destroy")
+	}
+	detail := d.Diagnostics[0].Detail()
+	for _, want := range []string{"Email code sign-in and step-up, Password reset", "force_destroy = true", "turn those features off"} {
+		if !strings.Contains(detail, want) {
+			t.Errorf("error detail missing %q:\n%s", want, detail)
+		}
+	}
+	if got := api.last(http.MethodDelete, "/v1/messaging_providers/email"); got == nil || got.Query != "" {
+		t.Errorf("without force_destroy the DELETE must carry no query, got %+v", got)
+	}
+
+	// force_destroy only changes state: no request to Atlas.
+	puts := api.count(http.MethodPut, "/v1/messaging_providers/email")
+	next := messagingPlan(t, r, "", "resend", map[string]attr.Value{"api_key": types.StringValue("re_x")})
+	next.SetAttribute(ctx, path.Root("force_destroy"), true)
+	updated, ur := doUpdate(t, r, next, state)
+	mustOK(t, "update", ur.Diagnostics.HasError(), ur.Diagnostics)
+	if api.count(http.MethodPut, "/v1/messaging_providers/email") != puts {
+		t.Error("changing only force_destroy must not PUT the provider")
+	}
+	var force types.Bool
+	updated.GetAttribute(ctx, path.Root("force_destroy"), &force)
+	var status types.String
+	updated.GetAttribute(ctx, path.Root("status"), &status)
+	if !force.ValueBool() || status.ValueString() != "active" {
+		t.Errorf("state after a force_destroy-only update: force=%v status=%v", force, status)
+	}
+
+	if d := doDelete(t, r, updated); d.Diagnostics.HasError() {
+		t.Fatalf("force_destroy delete: %v", d.Diagnostics)
+	}
+	if got := api.last(http.MethodDelete, "/v1/messaging_providers/email"); got == nil || got.Query != "force=true" {
+		t.Errorf("force_destroy must send ?force=true, got %+v", got)
+	}
+
+	// A real change alongside force_destroy still saves the provider.
+	changed := messagingPlan(t, r, "Acme <no-reply@acme.example>", "resend", map[string]attr.Value{"api_key": types.StringValue("re_x")})
+	changed.SetAttribute(ctx, path.Root("force_destroy"), false)
+	if _, cr := doUpdate(t, r, changed, updated); cr.Diagnostics.HasError() || api.count(http.MethodPut, "/v1/messaging_providers/email") != puts+1 {
+		t.Errorf("a from_address change must PUT: %v", cr.Diagnostics)
+	}
+}
+
+func TestSMSProvider_noForceDestroy(t *testing.T) {
+	if _, ok := schemaOf(t, NewSMSProviderResource()).Attributes["force_destroy"]; ok {
+		t.Error("force_destroy is email-only: removing the SMS provider is never refused")
+	}
+	if _, ok := schemaOf(t, NewEmailProviderResource()).Attributes["force_destroy"]; !ok {
+		t.Error("atlas_email_provider must have force_destroy")
 	}
 }

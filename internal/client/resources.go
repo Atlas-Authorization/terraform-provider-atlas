@@ -28,6 +28,7 @@ type OAuthClient struct {
 	SecretPrefix            *string  `json:"secret_prefix"`
 	IsPublic                bool     `json:"is_public"`
 	FirstParty              bool     `json:"first_party"`
+	SkipLogoutConfirmation  bool     `json:"skip_logout_confirmation"`
 	CreatedAt               int64    `json:"created_at"`
 	UpdatedAt               int64    `json:"updated_at"`
 	// Revealed exactly once on create/rotate; absent for a public client.
@@ -44,6 +45,8 @@ type OAuthClientWrite struct {
 	TokenEndpointAuthMethod *string  `json:"token_endpoint_auth_method,omitempty"`
 	LogoURL                 *string  `json:"logo_url,omitempty"`
 	FirstParty              *bool    `json:"first_party,omitempty"`
+	// First-party clients only; the API answers 422 on a third-party client.
+	SkipLogoutConfirmation *bool `json:"skip_logout_confirmation,omitempty"`
 }
 
 func (c *Client) CreateOAuthClient(ctx context.Context, body OAuthClientWrite) (*OAuthClient, error) {

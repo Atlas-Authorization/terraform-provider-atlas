@@ -32,6 +32,7 @@ type oauthClientDataModel struct {
 	TokenEndpointAuthMethod types.String `tfsdk:"token_endpoint_auth_method"`
 	LogoURI                 types.String `tfsdk:"logo_uri"`
 	FirstParty              types.Bool   `tfsdk:"first_party"`
+	SkipLogoutConfirmation  types.Bool   `tfsdk:"skip_logout_confirmation"`
 	SecretPrefix            types.String `tfsdk:"secret_prefix"`
 	IsPublic                types.Bool   `tfsdk:"is_public"`
 	CreatedAt               types.Int64  `tfsdk:"created_at"`
@@ -62,6 +63,7 @@ func (d *oauthClientDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 			"token_endpoint_auth_method": schema.StringAttribute{Computed: true, MarkdownDescription: "Token endpoint auth method."},
 			"logo_uri":                   schema.StringAttribute{Computed: true, MarkdownDescription: "Logo URL."},
 			"first_party":                schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether the client is first-party."},
+			"skip_logout_confirmation":   schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether an RP-initiated logout from this (first-party) client skips the \"Sign out?\" page."},
 			"secret_prefix":              schema.StringAttribute{Computed: true, MarkdownDescription: "Non-secret prefix of the live secret."},
 			"is_public":                  schema.BoolAttribute{Computed: true, MarkdownDescription: "Whether the client is public (PKCE)."},
 			"created_at":                 schema.Int64Attribute{Computed: true, MarkdownDescription: "Creation time (epoch ms)."},
@@ -89,6 +91,7 @@ func (d *oauthClientDataSource) Read(ctx context.Context, req datasource.ReadReq
 	config.TokenEndpointAuthMethod = types.StringValue(c.TokenEndpointAuthMethod)
 	config.LogoURI = stringPtrToValue(c.LogoURL)
 	config.FirstParty = types.BoolValue(c.FirstParty)
+	config.SkipLogoutConfirmation = types.BoolValue(c.SkipLogoutConfirmation)
 	config.SecretPrefix = stringPtrToValue(c.SecretPrefix)
 	config.IsPublic = types.BoolValue(c.IsPublic)
 	config.CreatedAt = types.Int64Value(c.CreatedAt)

@@ -88,7 +88,7 @@ terraform {
 
 | Resource                  | CRUD                       | Notes |
 |---------------------------|----------------------------|-------|
-| `atlas_oauth_client`      | Create / Read / Update / Delete | "Sign in with Atlas" relying party. `client_secret` is computed + sensitive and revealed only on create (empty for a public/PKCE client). |
+| `atlas_oauth_client`      | Create / Read / Update / Delete | "Sign in with Atlas" relying party. `client_secret` is computed + sensitive and revealed only on create (empty for a public/PKCE client). `skip_logout_confirmation` (first-party clients only) skips the "Sign out?" page on RP-initiated logout. |
 | `atlas_sso_connection`    | Create / Read / Update / Delete | `oidc` / `saml` / `discourse`. Secrets (`oidc_client_secret`, `saml_idp_certificate`, `discourse_secret`) are write-only; the API never returns them, so presence is tracked via `has_secret` / `has_saml_certificate` / `has_discourse_secret`. `type` is immutable (forces replacement). |
 | `atlas_resource_server`   | Create / Read / Update / Delete | Machine-token audience. `identifier` is immutable (forces replacement). |
 | `atlas_jwt_template`      | Create / Read / Update / Delete | Custom-claims map. `name` is the key and is immutable (forces replacement). |
@@ -103,8 +103,8 @@ terraform {
 | `atlas_entitlement_override` | Create / Read / Delete  | Sales-led plan / features / limits for a user or org, without Stripe. Grant-only, so every change replaces it. |
 | `atlas_instance_design`   | Create / Read / Update / Delete | Hosted sign-in page design (`design` JSON, compared semantically). Destroy removes the stored design. |
 | `atlas_organization_design` | Create / Read / Update / Delete | An organization's design override, layered over the instance design. |
-| `atlas_cookie_consent`    | Create / Read / Update / Delete | Cookie-consent banner (any CMP) on the hosted pages. Destroy turns it off. |
-| `atlas_email_provider` / `atlas_sms_provider` | Create / Read / Update / Delete | Bring-your-own messaging provider, one typed block per transport. Secrets are sensitive and write-only. |
+| `atlas_cookie_consent`    | Create / Read / Update / Delete | Cookie-consent banner (any CMP) on the hosted pages, with an optional footer "Cookie settings" link (`settings_link`). Destroy turns it off. |
+| `atlas_email_provider` / `atlas_sms_provider` | Create / Read / Update / Delete | Bring-your-own messaging provider, one typed block per transport. Secrets are sensitive and write-only. `force_destroy` (email) removes the email provider even while email sign-in or password reset depend on it. |
 | `atlas_id_app`            | Create / Read / Update / Delete | Sign in with Atlas app (needs `platform_key`). Logout URIs, scopes, `branding` JSON (semantic diff), `rotate_secret_trigger`. |
 
 ## Data sources

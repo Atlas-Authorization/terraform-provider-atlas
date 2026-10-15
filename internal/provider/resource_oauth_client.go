@@ -8,15 +8,18 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
 var (
-	_ resource.Resource                = &oauthClientResource{}
-	_ resource.ResourceWithImportState = &oauthClientResource{}
-	_ resource.ResourceWithConfigure   = &oauthClientResource{}
+	_ resource.Resource                   = &oauthClientResource{}
+	_ resource.ResourceWithImportState    = &oauthClientResource{}
+	_ resource.ResourceWithConfigure      = &oauthClientResource{}
+	_ resource.ResourceWithValidateConfig = &oauthClientResource{}
+	_ resource.ResourceWithModifyPlan     = &oauthClientResource{}
 )
 
 // NewOAuthClientResource is the factory registered with the provider.
@@ -37,6 +40,7 @@ type oauthClientModel struct {
 	TokenEndpointAuthMethod types.String `tfsdk:"token_endpoint_auth_method"`
 	LogoURI                 types.String `tfsdk:"logo_uri"`
 	FirstParty              types.Bool   `tfsdk:"first_party"`
+	SkipLogoutConfirmation  types.Bool   `tfsdk:"skip_logout_confirmation"`
 	SecretPrefix            types.String `tfsdk:"secret_prefix"`
 	IsPublic                types.Bool   `tfsdk:"is_public"`
 	ClientSecret            types.String `tfsdk:"client_secret"`
@@ -102,6 +106,15 @@ func (r *oauthClientResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Optional:            true,
 				Computed:            true,
 			},
+			"skip_logout_confirmation": schema.BoolAttribute{
+				MarkdownDescription: "When true, an RP-initiated logout (`/oauth2/logout`) from this client with an exactly " +
+					"registered `post_logout_redirect_uri` ends the session without the \"Sign out?\" page and redirects " +
+					"straight back. **First-party clients only** (`first_party = true`); Atlas refuses it on a third-party " +
+					"client. Defaults to false.",
+				Optional: true,
+				Computed: true,
+				Default:  booldefault.StaticBool(false),
+			},
 			"secret_prefix": schema.StringAttribute{
 				MarkdownDescription: "Non-secret prefix of the live client secret, for recognising which secret is deployed.",
 				Computed:            true,
@@ -155,6 +168,7 @@ func (r *oauthClientResource) Create(ctx context.Context, req resource.CreateReq
 	if !plan.FirstParty.IsNull() && !plan.FirstParty.IsUnknown() {
 		body.FirstParty = client.Ptr(plan.FirstParty.ValueBool())
 	}
+	body.SkipLogoutConfirmation = optionalBool(plan.SkipLogoutConfirmation)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -218,6 +232,7 @@ func (r *oauthClientResource) Update(ctx context.Context, req resource.UpdateReq
 	if !plan.FirstParty.IsNull() && !plan.FirstParty.IsUnknown() {
 		body.FirstParty = client.Ptr(plan.FirstParty.ValueBool())
 	}
+	body.SkipLogoutConfirmation = optionalBool(plan.SkipLogoutConfirmation)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -248,6 +263,52 @@ func (r *oauthClientResource) Delete(ctx context.Context, req resource.DeleteReq
 	}
 }
 
+// ValidateConfig catches skip_logout_confirmation on a client configured as
+// third-party (first_party = false) at plan time; Atlas would answer 422.
+func (r *oauthClientResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var skip, firstParty types.Bool
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("skip_logout_confirmation"), &skip)...)
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("first_party"), &firstParty)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if skip.IsUnknown() || !skip.ValueBool() || firstParty.IsUnknown() || firstParty.IsNull() || firstParty.ValueBool() {
+		return
+	}
+	addSkipLogoutConfirmationError(&resp.Diagnostics)
+}
+
+// ModifyPlan covers first_party left unset: a new client defaults to
+// third-party, and an existing one keeps its current (state) value. Either
+// way, a third-party client cannot skip the logout confirmation.
+func (r *oauthClientResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() {
+		return // destroy
+	}
+	var skip, configFirstParty types.Bool
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("skip_logout_confirmation"), &skip)...)
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("first_party"), &configFirstParty)...)
+	if resp.Diagnostics.HasError() || skip.IsUnknown() || !skip.ValueBool() || !configFirstParty.IsNull() {
+		return
+	}
+	firstParty := false
+	if !req.State.Raw.IsNull() {
+		var prior types.Bool
+		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("first_party"), &prior)...)
+		firstParty = prior.ValueBool()
+	}
+	if !firstParty {
+		addSkipLogoutConfirmationError(&resp.Diagnostics)
+	}
+}
+
+func addSkipLogoutConfirmationError(diags *diag.Diagnostics) {
+	diags.AddAttributeError(path.Root("skip_logout_confirmation"),
+		"skip_logout_confirmation needs a first-party client",
+		"Only first-party clients may skip the logout confirmation: Atlas refuses it (422) on a third-party "+
+			"client. Set first_party = true on this client, or remove skip_logout_confirmation.")
+}
+
 func (r *oauthClientResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
@@ -264,6 +325,7 @@ func (r *oauthClientResource) mapToState(ctx context.Context, c *client.OAuthCli
 	m.TokenEndpointAuthMethod = types.StringValue(c.TokenEndpointAuthMethod)
 	m.LogoURI = stringPtrToValue(c.LogoURL)
 	m.FirstParty = types.BoolValue(c.FirstParty)
+	m.SkipLogoutConfirmation = types.BoolValue(c.SkipLogoutConfirmation)
 	m.SecretPrefix = stringPtrToValue(c.SecretPrefix)
 	m.IsPublic = types.BoolValue(c.IsPublic)
 	m.CreatedAt = types.Int64Value(c.CreatedAt)

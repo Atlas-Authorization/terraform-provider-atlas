@@ -17,6 +17,15 @@ resource "atlas_oauth_client" "dashboard" {
   # allowed_scopes and grant_types default sensibly when omitted.
 }
 
+# Your own app: end the session on RP-initiated logout without the
+# "Sign out?" page (first-party clients only).
+resource "atlas_oauth_client" "web" {
+  name                     = "Acme web app"
+  redirect_uris            = ["https://app.example.com/callback"]
+  first_party              = true
+  skip_logout_confirmation = true
+}
+
 output "dashboard_secret" {
   value     = atlas_oauth_client.dashboard.client_secret
   sensitive = true
@@ -37,6 +46,7 @@ output "dashboard_secret" {
 - `token_endpoint_auth_method` (String) — One of `client_secret_basic`, `client_secret_post`, or `none` (public/PKCE). Defaults to `client_secret_basic`.
 - `logo_uri` (String) — Optional logo URL shown on the consent screen.
 - `first_party` (Boolean) — When true the client is first-party and may skip the consent screen. Defaults to `false`.
+- `skip_logout_confirmation` (Boolean) — When true, an RP-initiated logout (`/oauth2/logout`) from this client with an exactly registered `post_logout_redirect_uri` ends the session without the "Sign out?" page and redirects straight back (back- and front-channel logout still run). **First-party clients only**: set `first_party` to `true`. Atlas refuses it on a third-party client (`422`), so the provider fails the plan instead when it can tell the client is third-party. Defaults to `false`.
 
 ### Read-Only
 

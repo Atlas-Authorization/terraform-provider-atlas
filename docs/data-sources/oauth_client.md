@@ -32,6 +32,7 @@ output "dashboard_client_id" {
 - `token_endpoint_auth_method` (String) — Token endpoint auth method.
 - `logo_uri` (String) — Logo URL.
 - `first_party` (Boolean) — Whether the client is first-party.
+- `skip_logout_confirmation` (Boolean) — Whether an RP-initiated logout from this (first-party) client skips the "Sign out?" page.
 - `secret_prefix` (String) — Non-secret prefix of the live secret.
 - `is_public` (Boolean) — Whether the client is public (PKCE).
 - `created_at` (Number) — Creation time (epoch ms).

@@ -4,6 +4,32 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
+## 0.8.0
+
+### Added
+
+- **`atlas_oauth_client`**: `skip_logout_confirmation` (Boolean, default
+  `false`) — an RP-initiated logout from the client ends the session without
+  the "Sign out?" page. First-party clients only: the plan fails with a clear
+  error when the client is third-party (`first_party = false`, or unset on a
+  new client), before Atlas would answer `422`. The `atlas_oauth_client` data
+  source gains `skip_logout_confirmation` (read-only).
+- **`atlas_cookie_consent`**: `settings_link` (`label`, `preset`,
+  `attributes`, and read-only `rendered_attributes`) — a "Cookie settings"
+  link in the hosted pages' footer that reopens the CMP. Presets:
+  `cookiemunch`, `cookiebot`, `onetrust`, `custom`. The label length, preset
+  and attribute allowlist are checked at plan time.
+- **`atlas_email_provider`**: `force_destroy` (Boolean, default `false`) —
+  destroy sends `?force=true`, removing the provider even while
+  email-dependent features are on. Changing it alone makes no API call; it is
+  imported as `false`.
+
+### Changed
+
+- **`atlas_email_provider`**: when Atlas refuses a destroy with
+  `409 EMAIL_PROVIDER_IN_USE`, the error names the features that need the
+  provider and the two ways forward (turn them off, or set `force_destroy`).
+
 ## 0.7.0
 
 ### Added

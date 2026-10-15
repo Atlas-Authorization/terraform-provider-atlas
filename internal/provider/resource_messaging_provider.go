@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -217,6 +218,17 @@ func (r *messagingProviderResource) Schema(_ context.Context, _ resource.SchemaR
 			Computed:            true,
 		},
 	}
+	if r.channel == "email" {
+		attrs["force_destroy"] = schema.BoolAttribute{
+			MarkdownDescription: "Remove the provider on destroy even while email-dependent features (email code or " +
+				"link sign-in, sign-up email verification, password reset) are on and nothing else can send email. " +
+				"Those features then stop being offered until a provider is configured again. Without it, Atlas " +
+				"refuses the removal (`409 EMAIL_PROVIDER_IN_USE`). Changing it never calls Atlas. Defaults to false.",
+			Optional: true,
+			Computed: true,
+			Default:  booldefault.StaticBool(false),
+		}
+	}
 	for _, t := range r.transports {
 		nested := map[string]schema.Attribute{}
 		for _, f := range t.fields {
@@ -405,7 +417,44 @@ func (r *messagingProviderResource) Create(ctx context.Context, req resource.Cre
 }
 
 func (r *messagingProviderResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	if r.onlyForceDestroyChanged(ctx, req) {
+		// force_destroy is provider-side only: record it, keep everything else.
+		var force types.Bool
+		resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("force_destroy"), &force)...)
+		resp.State.Raw = req.State.Raw
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("force_destroy"), force)...)
+		return
+	}
 	r.save(ctx, req.Plan, &resp.State, &resp.Diagnostics)
+}
+
+// onlyForceDestroyChanged reports whether an update changes force_destroy and
+// nothing else. The configuration is compared with state (the computed
+// attributes are unknown in the plan).
+func (r *messagingProviderResource) onlyForceDestroyChanged(ctx context.Context, req resource.UpdateRequest) bool {
+	if r.channel != "email" {
+		return false
+	}
+	var diags diag.Diagnostics
+	var planned, prior types.Bool
+	diags.Append(req.Plan.GetAttribute(ctx, path.Root("force_destroy"), &planned)...)
+	diags.Append(req.State.GetAttribute(ctx, path.Root("force_destroy"), &prior)...)
+	if diags.HasError() || planned.Equal(prior) {
+		return false
+	}
+	names := []string{"from_address"}
+	for _, t := range r.transports {
+		names = append(names, t.name)
+	}
+	for _, name := range names {
+		var configured, stored attr.Value
+		diags.Append(req.Config.GetAttribute(ctx, path.Root(name), &configured)...)
+		diags.Append(req.State.GetAttribute(ctx, path.Root(name), &stored)...)
+		if diags.HasError() || !configured.Equal(stored) {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *messagingProviderResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -426,12 +475,56 @@ func (r *messagingProviderResource) Read(ctx context.Context, req resource.ReadR
 	}, &resp.Diagnostics)
 }
 
-func (r *messagingProviderResource) Delete(ctx context.Context, _ resource.DeleteRequest, resp *resource.DeleteResponse) {
-	if err := r.client.DeleteMessagingProvider(ctx, r.channel); err != nil && !client.IsNotFound(err) {
-		resp.Diagnostics.AddError("Unable to remove "+r.channel+" provider", err.Error())
+func (r *messagingProviderResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	force := false
+	if r.channel == "email" {
+		var f types.Bool
+		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("force_destroy"), &f)...)
+		force = f.ValueBool()
 	}
+	err := r.client.DeleteMessagingProvider(ctx, r.channel, force)
+	if err == nil || client.IsNotFound(err) {
+		return
+	}
+	if apiErr, ok := err.(*client.APIError); ok && apiErr.HasCode("EMAIL_PROVIDER_IN_USE") {
+		resp.Diagnostics.AddError("The email provider is still in use", emailProviderInUseDetail(apiErr))
+		return
+	}
+	resp.Diagnostics.AddError("Unable to remove "+r.channel+" provider", err.Error())
+}
+
+// emailProviderInUseDetail turns a 409 EMAIL_PROVIDER_IN_USE into the steps
+// that get the destroy through, naming the features from meta.features.
+func emailProviderInUseDetail(apiErr *client.APIError) string {
+	var features []string
+	for _, item := range apiErr.Errors {
+		if item.Code != "EMAIL_PROVIDER_IN_USE" {
+			continue
+		}
+		if list, ok := item.Meta["features"].([]interface{}); ok {
+			for _, f := range list {
+				if name, ok := f.(string); ok && name != "" {
+					features = append(features, name)
+				}
+			}
+		}
+	}
+	which := "Email-dependent features are on"
+	if len(features) > 0 {
+		which = "These features are on and need it: " + strings.Join(features, ", ")
+	}
+	return "Atlas refused to remove the email provider: it is the only way this instance can send email. " + which + ".\n\n" +
+		"To destroy it, either:\n" +
+		"  - turn those features off first (the email code / email link strategies, sign-up email verification and " +
+		"password reset in the instance auth configuration, e.g. atlas_instance_config.auth_config), apply, then destroy; or\n" +
+		"  - set force_destroy = true on this atlas_email_provider, apply, then destroy. Those features stop being " +
+		"offered until an email provider is configured again."
 }
 
 func (r *messagingProviderResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	if r.channel == "email" {
+		// Imported providers start with the default, so the next plan is clean.
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("force_destroy"), false)...)
+	}
 }
