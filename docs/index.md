@@ -90,6 +90,9 @@ environment.
 | [`atlas_sms_provider`](resources/sms_provider.md) | Your own SMS provider (Twilio, Vonage, …). |
 | [`atlas_id_app`](resources/id_app.md) | Sign in with Atlas app (needs `platform_key`). |
 | [`atlas_better_auth_bridge`](resources/better_auth_bridge.md) | Better Auth session bridge: migration window, cookie prefix, live fallback (write-only secret). |
+| [`atlas_policy`](resources/policy.md) | A policy users accept (terms, privacy): key, title, display, applies_to, reaccept, grace_days. |
+| [`atlas_policy_source`](resources/policy_source.md) | External policy source: endpoint, sync mode, write-only signing secret. |
+| [`atlas_policy_settings`](resources/policy_settings.md) | Policy settings: the `pol` session claim. |
 
 ## Data Sources
 

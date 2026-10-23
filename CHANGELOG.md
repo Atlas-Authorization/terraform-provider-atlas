@@ -4,6 +4,29 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
+## 0.10.0 — 2026-10-24
+
+### Added
+
+- **`atlas_policy`** — a policy users accept (terms of service, privacy policy, any
+  key): `key` (immutable), `title`, `display`, `required`, `applies_to`, `reaccept`,
+  `grace_days`, read-only `status`. Policy *versions* are content and have no
+  resource: publish them from the dashboard, the Backend API or SDKs, or serve them
+  with `atlas_policy_source`. Destroy deletes a never-published policy and retires
+  one with history; a retired policy is dropped from state and re-creating the same
+  `key` revives it. Import by key or id. The key, enumerations and `grace_days`
+  rules are checked at plan time.
+- **`atlas_policy_source`** — the external policy source (a singleton per instance):
+  `enabled`, `endpoint_url`, `sync` (`webhook` or `poll`), `poll_interval_minutes`,
+  the signing secret as the write-only `signing_secret_wo` with
+  `signing_secret_wo_version` (sent on create and whenever the version changes; a new
+  version without the secret clears it), and read-only `signing_secret_set`,
+  `webhook_url`, `protocol_version`, `last_synced_at`, `last_sync_ok`,
+  `last_sync_error`. Destroy disconnects the source (the policies stay). Import with
+  `policy_source`. `signing_secret_wo` needs Terraform 1.11 or later.
+- **`atlas_policy_settings`** — `session_claim` puts the `pol` claim on session tokens
+  (a singleton per instance). Destroy turns it off. Import with `policy_settings`.
+
 ## 0.9.0 — 2026-10-24
 
 ### Added

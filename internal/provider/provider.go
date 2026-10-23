@@ -140,6 +140,9 @@ func (p *AtlasProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewEmailProviderResource,
 		NewSMSProviderResource,
 		NewBetterAuthBridgeResource,
+		NewPolicyResource,
+		NewPolicySourceResource,
+		NewPolicySettingsResource,
 	}
 }
 

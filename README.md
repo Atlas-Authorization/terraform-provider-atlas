@@ -107,6 +107,9 @@ terraform {
 | `atlas_email_provider` / `atlas_sms_provider` | Create / Read / Update / Delete | Bring-your-own messaging provider, one typed block per transport. Secrets are sensitive and write-only. `force_destroy` (email) removes the email provider even while email sign-in or password reset depend on it. |
 | `atlas_id_app`            | Create / Read / Update / Delete | Sign in with Atlas app (needs `platform_key`). Logout URIs, scopes, `branding` JSON (semantic diff), `rotate_secret_trigger`. |
 | `atlas_better_auth_bridge` | Create / Read / Update / Delete | Singleton Better Auth session bridge for a migration without forced logout: `enabled`, `ends_at`, `cookie_prefix`, `live_fallback` (`base_url`, write-only `secret_wo` + `secret_wo_version`, read-only `has_secret`). Destroy turns it off and deletes the secret. |
+| `atlas_policy`            | Create / Read / Update / Delete | A policy users accept (terms of service, privacy policy, any key): `key` (immutable), `title`, `display`, `required`, `applies_to`, `reaccept`, `grace_days`. Versions are content and stay out of Terraform. Destroy deletes a never-published policy and retires one with history; a retired policy is revived by re-creating the same `key`. |
+| `atlas_policy_source`     | Create / Read / Update / Delete | Singleton external policy source: `endpoint_url`, `sync`, `poll_interval_minutes`, write-only `signing_secret_wo` + `signing_secret_wo_version`, read-only `webhook_url`. Destroy disconnects it (policies stay). |
+| `atlas_policy_settings`   | Create / Read / Update / Delete | Singleton policy settings: `session_claim` puts the `pol` claim on session tokens. Destroy turns it off. |
 
 ## Data sources
 
