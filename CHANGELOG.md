@@ -4,6 +4,22 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
+## 0.9.0 — 2026-10-24
+
+### Added
+
+- **`atlas_better_auth_bridge`** — the Better Auth session bridge (a singleton per
+  instance), for moving from Better Auth without signing anyone out: `enabled`,
+  `ends_at` (RFC 3339), `cookie_prefix`, and `live_fallback` (`enabled`,
+  `base_url`, the old app's secret as the write-only `secret_wo` with
+  `secret_wo_version`, read-only `has_secret`), plus read-only `exchange_path`.
+  The secret is never stored in state; it is sent on create and whenever
+  `secret_wo_version` changes (a new version without `secret_wo` clears it), and
+  removing the `live_fallback` block turns the fallback off and clears it.
+  Destroy turns the bridge off. The cookie prefix, window, URL and secret length
+  are checked at plan time. Import with `better_auth_bridge`. `secret_wo` needs
+  Terraform 1.11 or later.
+
 ## 0.8.0
 
 ### Added

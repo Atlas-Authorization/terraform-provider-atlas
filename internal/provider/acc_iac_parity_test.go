@@ -128,9 +128,9 @@ resource "atlas_cookie_consent" "test" {
 	})
 }
 
-// force_destroy = true removes the email provider with ?force=true. (A
-// development instance keeps the shared sender, so it is never refused; the
-// refusal path is covered by the offline harness.)
+// force_destroy = true removes the email provider with ?force=true, so the
+// destroy succeeds even while email-dependent features are on. (The refusal
+// path is covered by the offline harness.)
 func TestAccEmailProvider_forceDestroy(t *testing.T) {
 	cfg := func(force bool) string {
 		return providerConfig + fmt.Sprintf(`

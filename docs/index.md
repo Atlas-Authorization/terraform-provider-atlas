@@ -89,6 +89,7 @@ environment.
 | [`atlas_email_provider`](resources/email_provider.md) | Your own email provider (Resend, SES, SMTP, Brevo, Mailgun). |
 | [`atlas_sms_provider`](resources/sms_provider.md) | Your own SMS provider (Twilio, Vonage, …). |
 | [`atlas_id_app`](resources/id_app.md) | Sign in with Atlas app (needs `platform_key`). |
+| [`atlas_better_auth_bridge`](resources/better_auth_bridge.md) | Better Auth session bridge: migration window, cookie prefix, live fallback (write-only secret). |
 
 ## Data Sources
 

@@ -139,6 +139,7 @@ func (p *AtlasProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewEntitlementOverrideResource,
 		NewEmailProviderResource,
 		NewSMSProviderResource,
+		NewBetterAuthBridgeResource,
 	}
 }
 

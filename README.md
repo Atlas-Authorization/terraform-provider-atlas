@@ -106,6 +106,7 @@ terraform {
 | `atlas_cookie_consent`    | Create / Read / Update / Delete | Cookie-consent banner (any CMP) on the hosted pages, with an optional footer "Cookie settings" link (`settings_link`). Destroy turns it off. |
 | `atlas_email_provider` / `atlas_sms_provider` | Create / Read / Update / Delete | Bring-your-own messaging provider, one typed block per transport. Secrets are sensitive and write-only. `force_destroy` (email) removes the email provider even while email sign-in or password reset depend on it. |
 | `atlas_id_app`            | Create / Read / Update / Delete | Sign in with Atlas app (needs `platform_key`). Logout URIs, scopes, `branding` JSON (semantic diff), `rotate_secret_trigger`. |
+| `atlas_better_auth_bridge` | Create / Read / Update / Delete | Singleton Better Auth session bridge for a migration without forced logout: `enabled`, `ends_at`, `cookie_prefix`, `live_fallback` (`base_url`, write-only `secret_wo` + `secret_wo_version`, read-only `has_secret`). Destroy turns it off and deletes the secret. |
 
 ## Data sources
 

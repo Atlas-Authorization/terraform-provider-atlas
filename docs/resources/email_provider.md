@@ -19,8 +19,8 @@ email verification, password reset), Atlas refuses to remove it
 (`409 EMAIL_PROVIDER_IN_USE`) and the destroy fails, naming those features.
 Turn them off first, or set `force_destroy` to `true`, apply, and destroy again;
 the features then stop being offered until a provider is configured again.
-Development instances keep the shared development sender, so the removal is
-never refused there.
+The same applies to development instances: Atlas never sends an instance's
+email through its own account, so nothing else stands in for this provider.
 
 API: `GET /v1/messaging_providers`, `PUT /v1/messaging_providers/email`,
 `DELETE /v1/messaging_providers/email` (with `?force=true` when
