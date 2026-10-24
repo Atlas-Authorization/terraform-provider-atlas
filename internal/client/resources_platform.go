@@ -30,9 +30,11 @@ type AtlasIDApp struct {
 	Type                              string          `json:"type"`
 	SecretPrefix                      *string         `json:"secret_prefix"`
 	ManagedByInstanceID               *string         `json:"managed_by_instance_id"`
-	UserCount                         *int64          `json:"user_count"`
-	CreatedAt                         int64           `json:"created_at"`
-	UpdatedAt                         int64           `json:"updated_at"`
+	// ManagedVia is "instance_toggle", "adopted" or null.
+	ManagedVia *string `json:"managed_via"`
+	UserCount  *int64  `json:"user_count"`
+	CreatedAt  int64   `json:"created_at"`
+	UpdatedAt  int64   `json:"updated_at"`
 	// ClientSecret is present only on create and rotate_secret responses.
 	ClientSecret *string `json:"client_secret"`
 }
@@ -84,4 +86,38 @@ func (c *Client) RotateAtlasIDAppSecret(ctx context.Context, id string) (*AtlasI
 // DeleteAtlasIDApp deletes an app. DELETE /v1/platform/atlas_id_apps/:id.
 func (c *Client) DeleteAtlasIDApp(ctx context.Context, id string) error {
 	return c.doPlatform(ctx, http.MethodDelete, "/v1/platform/atlas_id_apps/"+url.PathEscape(id), nil, nil)
+}
+
+// SetAtlasIDAppManagedBy hands the management of an app's grants to an instance
+// of the same account (adoption), or takes it back with a nil instanceID.
+// PUT /v1/platform/atlas_id_apps/:id/managed_by.
+func (c *Client) SetAtlasIDAppManagedBy(ctx context.Context, id string, instanceID *string) (*AtlasIDApp, error) {
+	var out AtlasIDApp
+	body := map[string]interface{}{"instance_id": instanceID}
+	if err := c.doPlatform(ctx, http.MethodPut, "/v1/platform/atlas_id_apps/"+url.PathEscape(id)+"/managed_by", body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// AtlasIDButtonOrigin is one page origin the Sign in with Atlas button script ran on.
+type AtlasIDButtonOrigin struct {
+	Origin     string `json:"origin"`
+	LastSeenAt int64  `json:"last_seen_at"`
+	Requests   int64  `json:"requests"`
+}
+
+// AtlasIDAppPreflight is the part of the app preflight the provider reads.
+type AtlasIDAppPreflight struct {
+	ButtonRenderedOrigins []AtlasIDButtonOrigin `json:"button_rendered_origins"`
+}
+
+// GetAtlasIDAppPreflight reads an app's preflight.
+// GET /v1/platform/atlas_id_apps/:id/preflight.
+func (c *Client) GetAtlasIDAppPreflight(ctx context.Context, id string) (*AtlasIDAppPreflight, error) {
+	var out AtlasIDAppPreflight
+	if err := c.doPlatform(ctx, http.MethodGet, "/v1/platform/atlas_id_apps/"+url.PathEscape(id)+"/preflight", nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }

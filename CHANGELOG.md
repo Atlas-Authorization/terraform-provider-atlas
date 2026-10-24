@@ -4,6 +4,14 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
+## 0.12.0 — 2026-10-24
+
+### Added
+
+- **`cmp` (+ `consent_api`)** on `atlas_integration`, its four preset resources and `atlas_outbound_partner_link`: a nested `cmp` block (`script_url`, `script_id`, `site_id`, `blocking_mode`, `extra_origins`, `settings_preset`) with a nested `consent_api` block (`global`, `has_method`, `request_method`, `category_map`), matching the API. The matching data sources expose a read-only `cmp`.
+- **`atlas_id_app` adoption.** New `grants_managed_by_instance_id` hands an existing app's grants to an instance of the same account (`PUT /v1/platform/atlas_id_apps/:id/managed_by`); removing it releases the app. The app stays editable. New read-only `managed_via` (`instance_toggle`, `adopted`, or unset).
+- **`atlas_id_app` data source** (`GET` app + preflight): the app's fields plus `managed_by_instance_id`, `managed_via` and `button_rendered_origins` (`origin`, `last_seen_at`, `requests`: the page origins the Sign in with Atlas button script ran on in the last 7 days).
+
 ## 0.11.0 — 2026-10-24
 
 ### Added

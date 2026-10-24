@@ -220,9 +220,13 @@ type OutboundPartnerLink struct {
 	Source     string   `json:"source"`
 	Status     string   `json:"status"`
 	ExpiresAt  *int64   `json:"expires_at"`
-	LastError  *string  `json:"last_error"`
-	CreatedAt  int64    `json:"created_at"`
-	UpdatedAt  int64    `json:"updated_at"`
+	// Cmp is the partner's consent manager; CmpDefault is true when it is
+	// derived (a Cookie Munch link with a site:<id> resource), not set.
+	Cmp        map[string]interface{} `json:"cmp"`
+	CmpDefault bool                   `json:"cmp_default"`
+	LastError  *string                `json:"last_error"`
+	CreatedAt  int64                  `json:"created_at"`
+	UpdatedAt  int64                  `json:"updated_at"`
 }
 
 // OutboundPartnerLinkWrite is the PUT /v1/partner_links/outbound/:partner body.
@@ -236,6 +240,9 @@ type OutboundPartnerLinkWrite struct {
 	TokenURL     *string  `json:"token_url,omitempty"`
 	AuthMethod   *string  `json:"auth_method,omitempty"`
 	ExpiresAt    *string  `json:"expires_at,omitempty"`
+	// Cmp is raw JSON: nil omits it (the API keeps the stored one), `null`
+	// clears it, an object sets it.
+	Cmp json.RawMessage `json:"cmp,omitempty"`
 }
 
 func (c *Client) PutOutboundPartnerLink(ctx context.Context, partner string, body OutboundPartnerLinkWrite) (*OutboundPartnerLink, error) {
@@ -290,8 +297,12 @@ type Integration struct {
 	AtlasIDUsers            *bool                  `json:"atlas_id_users"`
 	ExternalRef             *string                `json:"external_ref"`
 	Metadata                map[string]interface{} `json:"metadata"`
-	EnabledAt               *int64                 `json:"enabled_at"`
-	UpdatedAt               *int64                 `json:"updated_at"`
+	// Cmp is the consent manager (script + consent_api adapter) the hosted
+	// pages load; nil when none. For the Cookie Munch preset it may be the
+	// preset's derived default.
+	Cmp       map[string]interface{} `json:"cmp"`
+	EnabledAt *int64                 `json:"enabled_at"`
+	UpdatedAt *int64                 `json:"updated_at"`
 }
 
 // PutIntegration is PUT /v1/instance/integrations/:id. The body is the whole

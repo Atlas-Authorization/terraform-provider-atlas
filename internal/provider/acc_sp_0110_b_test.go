@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -45,7 +46,17 @@ func accCheckReferralsOff(_ *terraform.State) error {
 	return nil
 }
 
+// accSkipWithoutCreds skips a live test unless the instance credentials are in
+// the environment (resource.Test already skips it without TF_ACC).
+func accSkipWithoutCreds(t *testing.T) {
+	t.Helper()
+	if os.Getenv("ATLAS_SECRET_KEY") == "" || os.Getenv("ATLAS_API_URL") == "" {
+		t.Skip("ATLAS_SECRET_KEY and ATLAS_API_URL must be set to run this live acceptance test")
+	}
+}
+
 func TestAccIntegration_custom_lifecycle(t *testing.T) {
+	accSkipWithoutCreds(t)
 	cfg := func(name, extra string) string {
 		return providerConfig + fmt.Sprintf(`
 resource "atlas_integration" "test" {
@@ -81,6 +92,15 @@ data "atlas_integration" "test" { integration = atlas_integration.test.id }
 				Config: cfg("TF acc custom renamed", `
   ttl_seconds = 60
   metadata    = { team = "acc" }
+  cmp {
+    script_url = "https://example.com/cmp/banner.js"
+    site_id    = "tfacc-site"
+    consent_api {
+      global         = "__tfaccConsent"
+      request_method = "request"
+      category_map   = { analytics = "statistics" }
+    }
+  }
 `),
 				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{
 					plancheck.ExpectResourceAction("atlas_integration.test", plancheck.ResourceActionUpdate),
@@ -89,6 +109,11 @@ data "atlas_integration" "test" { integration = atlas_integration.test.id }
 					resource.TestCheckResourceAttr("atlas_integration.test", "name", "TF acc custom renamed"),
 					resource.TestCheckResourceAttr("atlas_integration.test", "ttl_seconds", "60"),
 					resource.TestCheckResourceAttr("atlas_integration.test", "metadata.team", "acc"),
+					resource.TestCheckResourceAttr("atlas_integration.test", "cmp.script_url", "https://example.com/cmp/banner.js"),
+					resource.TestCheckResourceAttr("atlas_integration.test", "cmp.consent_api.global", "__tfaccConsent"),
+					resource.TestCheckResourceAttr("atlas_integration.test", "cmp.consent_api.has_method", "has"),
+					resource.TestCheckResourceAttr("atlas_integration.test", "cmp.consent_api.category_map.analytics", "statistics"),
+					resource.TestCheckResourceAttr("data.atlas_integration.test", "cmp.consent_api.request_method", "request"),
 				),
 			},
 			{

@@ -170,6 +170,7 @@ func (p *AtlasProvider) DataSources(_ context.Context) []func() datasource.DataS
 		NewResourceServerDataSource,
 		NewInstancePreflightDataSource,
 		NewWhoamiDataSource,
+		NewAtlasIDAppDataSource,
 	}
 	return append(sources, specDataSourceFactories()...)
 }

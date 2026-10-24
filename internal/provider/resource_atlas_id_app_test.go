@@ -4,10 +4,14 @@ import (
 	"context"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
 
 // appResponse is the API projection the fake returns: branding always carries
@@ -33,6 +37,7 @@ func appResponse(extra map[string]interface{}) map[string]interface{} {
 		"type":                                 "confidential",
 		"secret_prefix":                        "oacs_ab",
 		"managed_by_instance_id":               nil,
+		"managed_via":                          nil,
 		"created_at":                           1, "updated_at": 2,
 	}
 	for k, v := range extra {
@@ -219,5 +224,111 @@ func TestProjectAppBrandingKeepsExplicitAutoTheme(t *testing.T) {
 	}
 	if v := projectAppBranding(raw, newJSONObjectValue(`{"theme":"auto"}`)); v.ValueString() != `{"theme":"auto"}` {
 		t.Errorf("an explicitly configured theme must be kept, got %s", v.ValueString())
+	}
+}
+
+func TestAtlasIDApp_adoptionLifecycle(t *testing.T) {
+	ctx := context.Background()
+	adopted := false
+	c, api := newFakeAPI(t, func(call apiCall) (int, interface{}) {
+		view := func() map[string]interface{} {
+			if adopted {
+				return appResponse(map[string]interface{}{"managed_by_instance_id": "ins_1", "managed_via": "adopted"})
+			}
+			return appResponse(nil)
+		}
+		switch {
+		case call.Method == http.MethodPost && call.Path == "/v1/platform/atlas_id_apps":
+			return 201, appResponse(map[string]interface{}{"client_secret": "oacs_first"})
+		case call.Method == http.MethodPut && call.Path == "/v1/platform/atlas_id_apps/oac_1/managed_by":
+			adopted = call.Body["instance_id"] != nil
+			out := view()
+			out["changed"] = true
+			return 200, out
+		case call.Method == http.MethodPatch:
+			return 200, view()
+		case call.Method == http.MethodGet:
+			return 200, view()
+		}
+		return 404, map[string]interface{}{"errors": []map[string]string{{"code": "NOT_FOUND", "message": "x"}}}
+	})
+	r := NewAtlasIDAppResource()
+	configureResource(t, r, c)
+
+	plan := baseAppModel(ctx)
+	plan.GrantsManagedByInstanceID = types.StringValue("ins_1")
+	plan.ManagedVia = types.StringUnknown()
+	state, cresp := doCreate(t, r, planFrom(t, r, plan))
+	mustOK(t, "create", cresp.Diagnostics.HasError(), cresp.Diagnostics)
+	if put := api.last(http.MethodPut, "/v1/platform/atlas_id_apps/oac_1/managed_by"); put == nil || put.Body["instance_id"] != "ins_1" {
+		t.Fatalf("create must adopt via PUT managed_by, got %+v", put)
+	}
+	var m atlasIDAppModel
+	mustOK(t, "get state", state.Get(ctx, &m).HasError(), nil)
+	if m.ManagedVia.ValueString() != "adopted" || m.GrantsManagedByInstanceID.ValueString() != "ins_1" || m.ClientSecret.ValueString() != "oacs_first" {
+		t.Errorf("adoption not reflected: via=%q grants=%q secret kept=%v", m.ManagedVia.ValueString(), m.GrantsManagedByInstanceID.ValueString(), m.ClientSecret.ValueString() == "oacs_first")
+	}
+
+	// Refresh keeps it; removing the attribute releases with a null instance_id.
+	refreshed, rresp := doRead(t, r, state)
+	mustOK(t, "read", rresp.Diagnostics.HasError(), rresp.Diagnostics)
+	var rm atlasIDAppModel
+	refreshed.Get(ctx, &rm)
+	if rm.GrantsManagedByInstanceID.ValueString() != "ins_1" {
+		t.Errorf("read lost the adoption: %+v", rm.GrantsManagedByInstanceID)
+	}
+	next := m
+	next.GrantsManagedByInstanceID = types.StringNull()
+	next.ManagedVia = types.StringUnknown()
+	next.ManagedByInstanceID = types.StringUnknown()
+	updated, uresp := doUpdate(t, r, planFrom(t, r, next), state)
+	mustOK(t, "update", uresp.Diagnostics.HasError(), uresp.Diagnostics)
+	if api.count(http.MethodPut, "/v1/platform/atlas_id_apps/oac_1/managed_by") != 2 {
+		t.Error("release must PUT managed_by again")
+	}
+	if put := api.last(http.MethodPut, "/v1/platform/atlas_id_apps/oac_1/managed_by"); put.Body["instance_id"] != nil {
+		t.Errorf("release must send instance_id null, got %v", put.Body)
+	}
+	var um atlasIDAppModel
+	updated.Get(ctx, &um)
+	if !um.GrantsManagedByInstanceID.IsNull() || !um.ManagedVia.IsNull() || um.ClientSecret.ValueString() != "oacs_first" {
+		t.Errorf("release not reflected: %+v / %+v", um.GrantsManagedByInstanceID, um.ManagedVia)
+	}
+}
+
+func TestAtlasIDAppDataSource_buttonRenderedOrigins(t *testing.T) {
+	c, _ := newFakeAPI(t, func(call apiCall) (int, interface{}) {
+		if call.Method == http.MethodGet && strings.HasSuffix(call.Path, "/preflight") {
+			return 200, map[string]interface{}{"object": "preflight", "button_rendered_origins": []map[string]interface{}{
+				{"origin": "https://acme.example", "last_seen_at": 5, "requests": 3},
+			}}
+		}
+		return 200, appResponse(map[string]interface{}{"managed_by_instance_id": "ins_1", "managed_via": "adopted"})
+	})
+	ctx := context.Background()
+	d := NewAtlasIDAppDataSource()
+	d.(*atlasIDAppDataSource).client = c
+	var sr datasource.SchemaResponse
+	d.Schema(ctx, datasource.SchemaRequest{}, &sr)
+	cfgState := tfsdk.State{Schema: sr.Schema, Raw: tftypes.NewValue(sr.Schema.Type().TerraformType(ctx), nil)}
+	in := atlasIDAppDataModel{
+		ID: types.StringValue("oac_1"), ClientID: types.StringNull(), Name: types.StringNull(), Type: types.StringNull(),
+		RedirectURIs: types.ListNull(types.StringType), AllowedScopes: types.ListNull(types.StringType),
+		HomepageURL: types.StringNull(), SecretPrefix: types.StringNull(), ManagedByInstanceID: types.StringNull(),
+		ManagedVia: types.StringNull(), ButtonRenderedOrigins: types.ListNull(buttonOriginObjectType),
+		CreatedAt: types.Int64Null(), UpdatedAt: types.Int64Null(),
+	}
+	mustOK(t, "config", cfgState.Set(ctx, &in).HasError(), nil)
+	resp := datasource.ReadResponse{State: tfsdk.State{Schema: sr.Schema, Raw: cfgState.Raw}}
+	d.Read(ctx, datasource.ReadRequest{Config: tfsdk.Config{Schema: sr.Schema, Raw: cfgState.Raw}}, &resp)
+	state := resp.State
+	mustOK(t, "read", resp.Diagnostics.HasError(), resp.Diagnostics)
+	var m atlasIDAppDataModel
+	mustOK(t, "get", state.Get(context.Background(), &m).HasError(), nil)
+	if m.ManagedVia.ValueString() != "adopted" || len(m.ButtonRenderedOrigins.Elements()) != 1 {
+		t.Fatalf("unexpected data source state: via=%q origins=%d", m.ManagedVia.ValueString(), len(m.ButtonRenderedOrigins.Elements()))
+	}
+	if !strings.Contains(m.ButtonRenderedOrigins.Elements()[0].String(), "https://acme.example") {
+		t.Errorf("origin missing: %s", m.ButtonRenderedOrigins.Elements()[0])
 	}
 }

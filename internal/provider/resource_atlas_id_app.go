@@ -49,6 +49,8 @@ type atlasIDAppModel struct {
 	ClientSecret                      types.String    `tfsdk:"client_secret"`
 	SecretPrefix                      types.String    `tfsdk:"secret_prefix"`
 	ManagedByInstanceID               types.String    `tfsdk:"managed_by_instance_id"`
+	GrantsManagedByInstanceID         types.String    `tfsdk:"grants_managed_by_instance_id"`
+	ManagedVia                        types.String    `tfsdk:"managed_via"`
 	CreatedAt                         types.Int64     `tfsdk:"created_at"`
 	UpdatedAt                         types.Int64     `tfsdk:"updated_at"`
 }
@@ -168,6 +170,16 @@ func (r *atlasIDAppResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				MarkdownDescription: "Set when the app is managed by an instance's Sign in with Atlas toggle (read-only there).",
 				Computed:            true,
 			},
+			"grants_managed_by_instance_id": schema.StringAttribute{
+				MarkdownDescription: "Adopt the app into an instance of the same account: that instance's scoped key can " +
+					"then list and revoke the app's grants. The app stays editable here. Removing the attribute releases " +
+					"the app. Not for an app managed by an instance's Sign in with Atlas toggle.",
+				Optional: true,
+			},
+			"managed_via": schema.StringAttribute{
+				MarkdownDescription: "How the app's grants are managed: `instance_toggle`, `adopted`, or unset.",
+				Computed:            true,
+			},
 			"created_at": schema.Int64Attribute{Computed: true, MarkdownDescription: "Creation time (epoch ms).",
 				PlanModifiers: nil},
 			"updated_at": schema.Int64Attribute{Computed: true, MarkdownDescription: "Last update time (epoch ms)."},
@@ -257,8 +269,20 @@ func (r *atlasIDAppResource) Create(ctx context.Context, req resource.CreateRequ
 		resp.Diagnostics.AddError("Unable to create Sign in with Atlas app", err.Error())
 		return
 	}
+	adoptInto := plan.GrantsManagedByInstanceID
 	mapAtlasIDApp(ctx, created, &plan, &resp.Diagnostics)
 	plan.ClientSecret = stringPtrToValue(created.ClientSecret)
+	if !adoptInto.IsNull() && !adoptInto.IsUnknown() {
+		target := adoptInto.ValueString()
+		adopted, err := r.client.SetAtlasIDAppManagedBy(ctx, created.ID, &target)
+		if err != nil {
+			// The app exists: keep it in state (tainted) so it is not orphaned.
+			resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+			resp.Diagnostics.AddError("Unable to adopt Sign in with Atlas app", err.Error())
+			return
+		}
+		mapAtlasIDApp(ctx, adopted, &plan, &resp.Diagnostics)
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -310,6 +334,21 @@ func (r *atlasIDAppResource) Update(ctx context.Context, req resource.UpdateRequ
 		updated = rotated
 		plan.ClientSecret = stringPtrToValue(rotated.ClientSecret)
 	}
+	if !plan.GrantsManagedByInstanceID.Equal(state.GrantsManagedByInstanceID) {
+		var target *string
+		if !plan.GrantsManagedByInstanceID.IsNull() && !plan.GrantsManagedByInstanceID.IsUnknown() {
+			v := plan.GrantsManagedByInstanceID.ValueString()
+			target = &v
+		}
+		adopted, err := r.client.SetAtlasIDAppManagedBy(ctx, state.ID.ValueString(), target)
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to change Sign in with Atlas app adoption", err.Error())
+			return
+		}
+		// The managed_by response has no secret fields; keep the rotated one.
+		adopted.ClientSecret = nil
+		updated = adopted
+	}
 	mapAtlasIDApp(ctx, updated, &plan, &resp.Diagnostics)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -350,6 +389,14 @@ func mapAtlasIDApp(ctx context.Context, a *client.AtlasIDApp, m *atlasIDAppModel
 	m.Branding = projectAppBranding(a.Branding, m.Branding)
 	m.SecretPrefix = stringPtrToValue(a.SecretPrefix)
 	m.ManagedByInstanceID = stringPtrToValue(a.ManagedByInstanceID)
+	m.ManagedVia = stringPtrToValue(a.ManagedVia)
+	// Only an adopted app maps back to the configurable attribute; a toggle app
+	// reports its instance through managed_by_instance_id alone.
+	if a.ManagedVia != nil && *a.ManagedVia == "adopted" {
+		m.GrantsManagedByInstanceID = stringPtrToValue(a.ManagedByInstanceID)
+	} else {
+		m.GrantsManagedByInstanceID = types.StringNull()
+	}
 	m.CreatedAt = types.Int64Value(a.CreatedAt)
 	m.UpdatedAt = types.Int64Value(a.UpdatedAt)
 }

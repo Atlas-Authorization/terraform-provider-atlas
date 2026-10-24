@@ -92,6 +92,12 @@ func (d *specDataSource) dataSourceSchema() dschema.Schema {
 			panic(fmt.Sprintf("data source %s: unsupported attribute type %T for %s", d.spec.name, a, name))
 		}
 	}
+	for name := range rs.Blocks {
+		if name != "cmp" {
+			panic(fmt.Sprintf("data source %s: unsupported block %s", d.spec.name, name))
+		}
+		attrs[name] = cmpDataSourceAttribute()
+	}
 	return dschema.Schema{MarkdownDescription: d.spec.doc, Attributes: attrs}
 }
 
@@ -195,6 +201,7 @@ func dataSourceSpecs() []dataSourceSpec {
 				}
 				var m outboundPartnerLinkModel
 				fillOutbound(ctx, &m, l, diags)
+				m.Cmp = cmpFromAPI(ctx, l.Cmp, diags) // include a derived default
 				return stateOf(ctx, outboundPartnerLinkSchema(), &m, diags), true
 			},
 		},
@@ -216,6 +223,7 @@ func dataSourceSpecs() []dataSourceSpec {
 				}
 				var m integrationModel
 				fillIntegration(ctx, &m, i, diags)
+				m.Cmp = cmpFromAPI(ctx, i.Cmp, diags) // include a derived default
 				return stateOf(ctx, integrationSchema(""), &m, diags), true
 			},
 		},

@@ -20,8 +20,13 @@ in-place update, because Terraform compares configuration text; `jsonencode` out
 is canonical, so it never does.)
 A key you remove from the configuration is cleared on the server.
 
+**Adoption.** Set `grants_managed_by_instance_id` to an instance of the same
+account to hand it the app's grants: that instance's scoped key can then list and
+revoke them, while the app stays editable here. Removing the attribute releases the
+app. `managed_via` reports `instance_toggle`, `adopted` or unset.
+
 API: `POST /v1/platform/atlas_id_apps`, `GET`/`PATCH`/`DELETE
-/v1/platform/atlas_id_apps/:id`, `POST /v1/platform/atlas_id_apps/:id/rotate_secret`.
+/v1/platform/atlas_id_apps/:id`, `POST /v1/platform/atlas_id_apps/:id/rotate_secret`, `PUT /v1/platform/atlas_id_apps/:id/managed_by`.
 
 ## Example Usage
 
@@ -82,6 +87,7 @@ output "acme_client_id" {
 - `logo_url` (String) — https URL of the app logo.
 - `homepage_url` (String) — https URL of the app homepage.
 - `branding` (String, JSON object) — Page look for this app: `theme` (`auto` | `light` | `dark`), `accent_color` and `background_color` (`#RRGGBB`), `privacy_policy_url`, `terms_of_service_url`, `copy` (`sign_in_title`, `sign_in_subtitle`, `sign_up_title`, `sign_up_subtitle`, `consent_message`, `support_url`, `support_label`; `{app}` is replaced with the app name) and `design` (sign-in page design settings, the same shape as `atlas_instance_design.design`; images must be uploaded to your account).
+- `grants_managed_by_instance_id` (String) — Adopt the app into an instance of the same account; remove to release.
 - `rotate_secret_trigger` (String) — Any value; changing it rotates the client secret in place. Confidential apps only.
 
 ### Read-Only
@@ -90,7 +96,8 @@ output "acme_client_id" {
 - `client_id` (String) — The OAuth client id.
 - `client_secret` (String, Sensitive) — The client secret, returned on create and on rotation only.
 - `secret_prefix` (String) — The first characters of the current secret.
-- `managed_by_instance_id` (String) — Set when an instance's Sign in with Atlas switch manages the app.
+- `managed_by_instance_id` (String) — The instance that manages the app's grants (a Sign in with Atlas switch, or adoption).
+- `managed_via` (String) — `instance_toggle`, `adopted`, or unset.
 - `created_at` (Number) — Creation time (epoch ms).
 - `updated_at` (Number) — Last update time (epoch ms).
 

@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/atlas/terraform-provider-atlas/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -39,6 +40,7 @@ type outboundPartnerLinkModel struct {
 	AuthMethod   types.String `tfsdk:"auth_method"`
 	Status       types.String `tfsdk:"status"`
 	LastError    types.String `tfsdk:"last_error"`
+	Cmp          *cmpModel    `tfsdk:"cmp"`
 }
 
 func (r *outboundPartnerLinkResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -119,6 +121,7 @@ func outboundPartnerLinkSchema() schema.Schema {
 				Computed:            true,
 			},
 		},
+		Blocks: map[string]schema.Block{"cmp": cmpBlock()},
 	}
 }
 
@@ -138,9 +141,17 @@ func fillOutbound(ctx context.Context, m *outboundPartnerLinkModel, l *client.Ou
 	m.AuthMethod = types.StringValue(l.AuthMethod)
 	m.Status = types.StringValue(l.Status)
 	m.LastError = stringPtrToValue(l.LastError)
+	// A derived default (a Cookie Munch link with a site:<id> resource) is not
+	// something the configuration set, so it stays out of state.
+	if l.CmpDefault {
+		m.Cmp = nil
+	} else {
+		m.Cmp = cmpFromAPI(ctx, l.Cmp, diags)
+	}
 }
 
-func (r *outboundPartnerLinkResource) write(ctx context.Context, plan *outboundPartnerLinkModel, diags *diag.Diagnostics) *client.OutboundPartnerLink {
+// clearCmp sends `cmp: null` (the API keeps the stored cmp when the field is absent).
+func (r *outboundPartnerLinkResource) write(ctx context.Context, plan *outboundPartnerLinkModel, clearCmp bool, diags *diag.Diagnostics) *client.OutboundPartnerLink {
 	body := client.OutboundPartnerLinkWrite{
 		Name:         optionalString(plan.Name),
 		ClientID:     plan.ClientID.ValueString(),
@@ -153,6 +164,16 @@ func (r *outboundPartnerLinkResource) write(ctx context.Context, plan *outboundP
 	}
 	if body.Scopes == nil {
 		body.Scopes = []string{}
+	}
+	if cmp := cmpToAPI(ctx, plan.Cmp, diags); cmp != nil {
+		raw, err := json.Marshal(cmp)
+		if err != nil {
+			diags.AddError("Unable to encode cmp", err.Error())
+			return nil
+		}
+		body.Cmp = raw
+	} else if clearCmp {
+		body.Cmp = json.RawMessage("null")
 	}
 	if diags.HasError() {
 		return nil
@@ -171,7 +192,7 @@ func (r *outboundPartnerLinkResource) Create(ctx context.Context, req resource.C
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	saved := r.write(ctx, &plan, &resp.Diagnostics)
+	saved := r.write(ctx, &plan, false, &resp.Diagnostics)
 	if saved == nil {
 		return
 	}
@@ -199,12 +220,13 @@ func (r *outboundPartnerLinkResource) Read(ctx context.Context, req resource.Rea
 }
 
 func (r *outboundPartnerLinkResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan outboundPartnerLinkModel
+	var plan, state outboundPartnerLinkModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	saved := r.write(ctx, &plan, &resp.Diagnostics)
+	saved := r.write(ctx, &plan, state.Cmp != nil && plan.Cmp == nil, &resp.Diagnostics)
 	if saved == nil {
 		return
 	}

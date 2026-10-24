@@ -73,6 +73,7 @@ type integrationModel struct {
 	Issuer                  types.String `tfsdk:"issuer"`
 	JWKSURL                 types.String `tfsdk:"jwks_url"`
 	BackchannelLogoutSource types.String `tfsdk:"backchannel_logout_source"`
+	Cmp                     *cmpModel    `tfsdk:"cmp"`
 }
 
 func (r *integrationResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -240,6 +241,7 @@ func integrationSchema(preset string) schema.Schema {
 				Computed:            true,
 			},
 		},
+		Blocks: map[string]schema.Block{"cmp": cmpBlock()},
 	}
 }
 
@@ -289,6 +291,21 @@ func fillIntegration(ctx context.Context, m *integrationModel, i *client.Integra
 	m.Issuer = stringPtrToValue(i.Issuer)
 	m.JWKSURL = stringPtrToValue(i.JWKSURL)
 	m.BackchannelLogoutSource = stringPtrToValue(i.BackchannelLogoutSource)
+	m.Cmp = integrationCmpState(ctx, m.Cmp, i, diags)
+}
+
+// integrationCmpState decides what the cmp block holds in state. The Cookie
+// Munch preset answers a derived default cmp that cannot be told apart from one
+// that was set, so there the block is read back only when it is already
+// configured; every other integration shows exactly what the API holds.
+func integrationCmpState(ctx context.Context, prior *cmpModel, i *client.Integration, diags *diag.Diagnostics) *cmpModel {
+	if i.Cmp == nil {
+		return nil
+	}
+	if prior == nil && i.ID == "cookiemunch" {
+		return nil
+	}
+	return cmpFromAPI(ctx, i.Cmp, diags)
 }
 
 // body builds the PUT body. Fields with a plan default come from the plan; the
@@ -322,6 +339,11 @@ func (r *integrationResource) body(ctx context.Context, plan, cfg *integrationMo
 	}
 	if md := metadataToAPI(ctx, plan.Metadata, diags); md != nil {
 		body["metadata"] = md
+	}
+	// The PUT replaces the whole connection, so an omitted cmp is none (or the
+	// preset's default).
+	if cmp := cmpToAPI(ctx, plan.Cmp, diags); cmp != nil {
+		body["cmp"] = cmp
 	}
 	return body
 }

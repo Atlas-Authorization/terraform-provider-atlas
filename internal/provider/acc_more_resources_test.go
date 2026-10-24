@@ -500,3 +500,54 @@ func TestAccOAuthProviderDataSource_basic(t *testing.T) {
 		},
 	})
 }
+
+const idAppAdoptConfig = `
+resource "atlas_id_app" "adopt" {
+  name                          = "%[1]s"
+  redirect_uris                 = ["https://app.example.com/callback"]
+%[2]s}
+
+data "atlas_id_app" "adopt" {
+  id = atlas_id_app.adopt.id
+}
+`
+
+// TestAccIDApp_adoption creates its own throwaway app, adopts it into the
+// sandbox instance (ATLAS_TEST_INSTANCE_ID, an instance of the platform key's
+// account), reads it back through the data source, releases it, and destroys it.
+func TestAccIDApp_adoption(t *testing.T) {
+	instanceID := os.Getenv("ATLAS_TEST_INSTANCE_ID")
+	if instanceID == "" {
+		t.Skip("ATLAS_TEST_INSTANCE_ID must be set (an instance of the platform key's account) to run the adoption acceptance test")
+	}
+	name := acctest.RandomWithPrefix("tf-acc-adopt")
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPlatformPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckIDAppDestroyed,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + fmt.Sprintf(idAppAdoptConfig, name, ""),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr("atlas_id_app.adopt", "managed_via"),
+					resource.TestCheckResourceAttr("data.atlas_id_app.adopt", "button_rendered_origins.#", "0"),
+				),
+			},
+			{
+				Config: providerConfig + fmt.Sprintf(idAppAdoptConfig, name, fmt.Sprintf("  grants_managed_by_instance_id = %q\n", instanceID)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("atlas_id_app.adopt", "managed_via", "adopted"),
+					resource.TestCheckResourceAttr("atlas_id_app.adopt", "managed_by_instance_id", instanceID),
+					resource.TestCheckResourceAttr("atlas_id_app.adopt", "grants_managed_by_instance_id", instanceID),
+				),
+			},
+			{
+				Config: providerConfig + fmt.Sprintf(idAppAdoptConfig, name, ""),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr("atlas_id_app.adopt", "grants_managed_by_instance_id"),
+					resource.TestCheckNoResourceAttr("atlas_id_app.adopt", "managed_via"),
+				),
+			},
+		},
+	})
+}

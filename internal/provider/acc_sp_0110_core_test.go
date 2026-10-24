@@ -133,6 +133,7 @@ data "atlas_partner_link" "test" { id = atlas_partner_link.test.id }
 }
 
 func TestAccOutboundPartnerLink_lifecycle(t *testing.T) {
+	accSkipWithoutCreds(t)
 	cfg := func(scope string) string {
 		return providerConfig + fmt.Sprintf(`
 resource "atlas_outbound_partner_link" "test" {
