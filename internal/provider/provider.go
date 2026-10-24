@@ -51,13 +51,13 @@ func (p *AtlasProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp
 				Optional: true,
 			},
 			"secret_key": schema.StringAttribute{
-				MarkdownDescription: "Atlas instance secret key (`sk_...`). Prefer the `ATLAS_SECRET_KEY` " +
+				MarkdownDescription: "Atlas instance secret key (`sk_...` or `atlas_<env>_sk_...`). Prefer the `ATLAS_SECRET_KEY` " +
 					"environment variable so the key never lands in state or config.",
 				Optional:  true,
 				Sensitive: true,
 			},
 			"platform_key": schema.StringAttribute{
-				MarkdownDescription: "Atlas platform key (`psk_...`), needed only by platform resources such as " +
+				MarkdownDescription: "Atlas platform key (`psk_...` or `atlas_<env>_psk_...`), needed only by platform resources such as " +
 					"`atlas_id_app` (Sign in with Atlas apps). Prefer the `ATLAS_PLATFORM_KEY` environment variable.",
 				Optional:  true,
 				Sensitive: true,
@@ -74,7 +74,11 @@ func (p *AtlasProvider) Configure(ctx context.Context, req provider.ConfigureReq
 	}
 
 	// Config value wins over the environment; the env var is the fallback.
-	apiURL := os.Getenv("ATLAS_API_URL")
+	// ATLAS_API_BASE (the name the guides and SDKs use) wins over the older ATLAS_API_URL.
+	apiURL := os.Getenv("ATLAS_API_BASE")
+	if apiURL == "" {
+		apiURL = os.Getenv("ATLAS_API_URL")
+	}
 	if !config.APIURL.IsNull() && config.APIURL.ValueString() != "" {
 		apiURL = config.APIURL.ValueString()
 	}
@@ -97,7 +101,7 @@ func (p *AtlasProvider) Configure(ctx context.Context, req provider.ConfigureReq
 		resp.Diagnostics.AddAttributeError(
 			pathSecretKey(),
 			"Missing Atlas secret key",
-			"The provider needs an instance secret key (sk_...). Set it in the provider block's "+
+			"The provider needs an instance secret key (sk_... or atlas_<env>_sk_...). Set it in the provider block's "+
 				"secret_key attribute or, preferably, the ATLAS_SECRET_KEY environment variable. "+
 				"(Platform-only configurations may set platform_key / ATLAS_PLATFORM_KEY instead.)",
 		)
@@ -143,14 +147,29 @@ func (p *AtlasProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewPolicyResource,
 		NewPolicySourceResource,
 		NewPolicySettingsResource,
+		NewSecretKeyResource,
+		NewPartnerLinkResource,
+		NewOutboundPartnerLinkResource,
+		NewIntegrationResource,
+		NewPresetIntegrationResource("chatly"),
+		NewPresetIntegrationResource("forumulate"),
+		NewPresetIntegrationResource("cookiemunch"),
+		NewPresetIntegrationResource("referalli"),
+		NewAuditExportResource,
+		NewStatusSubscriptionResource,
+		NewStatusDependencyResource,
+		NewPrivacyOrchestratorResource,
+		NewReferralSettingsResource,
 	}
 }
 
 func (p *AtlasProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{
+	sources := []func() datasource.DataSource{
 		NewOAuthClientDataSource,
 		NewOAuthProviderDataSource,
 		NewResourceServerDataSource,
 		NewInstancePreflightDataSource,
+		NewWhoamiDataSource,
 	}
+	return append(sources, specDataSourceFactories()...)
 }

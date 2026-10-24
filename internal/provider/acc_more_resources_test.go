@@ -316,7 +316,8 @@ func TestAccEmailProvider_smtp(t *testing.T) {
 	cfg := func(port int) string {
 		return providerConfig + fmt.Sprintf(`
 resource "atlas_email_provider" "test" {
-  from_address = "Acme <no-reply@example.com>"
+  from_address  = "Acme <no-reply@example.com>"
+  force_destroy = true
   smtp = {
     host     = "smtp.example.com"
     port     = %d
@@ -348,7 +349,7 @@ resource "atlas_email_provider" "test" {
 				ImportState:             true,
 				ImportStateId:           "email",
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"smtp.password"},
+				ImportStateVerifyIgnore: []string{"smtp.password", "force_destroy"},
 			},
 		},
 	})

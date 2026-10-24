@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -117,8 +118,11 @@ func (r *cookieConsentResource) Schema(_ context.Context, _ resource.SchemaReque
 			"settings_link": schema.SingleNestedAttribute{
 				MarkdownDescription: "A **Cookie settings** link in the footer of the hosted pages that reopens your CMP's " +
 					"preferences, so a visitor can change or withdraw consent after the banner is gone. Set a `preset` " +
-					"for your CMP, your own `attributes`, or both. Unset = no link.",
-				Optional: true,
+					"for your CMP, your own `attributes`, or both. When unset, Atlas supplies the default link for a CMP it " +
+					"recognises from `script_url` (Cookiebot, OneTrust, Cookie Munch), and none otherwise. Removing the block later leaves the current link in place.",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 				Attributes: map[string]schema.Attribute{
 					"label": schema.StringAttribute{
 						MarkdownDescription: "The link text, 1–60 characters, e.g. `Cookie settings`.",
@@ -164,6 +168,11 @@ func (r *cookieConsentResource) apply(ctx context.Context, m *cookieConsentModel
 	if err != nil {
 		diags.AddError("Unable to set cookie consent", err.Error())
 		return
+	}
+	// The PUT answers with the stored setting; a read adds the default settings
+	// link Atlas derives for a recognised CMP, so state matches the next refresh.
+	if got, gerr := r.client.GetCookieConsent(ctx); gerr == nil && got.Enabled {
+		cc = got
 	}
 	mapCookieConsent(ctx, cc, m, diags)
 }

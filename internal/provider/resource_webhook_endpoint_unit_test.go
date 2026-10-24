@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -27,7 +28,7 @@ func webhookFake(t *testing.T, active bool) (*webhookEndpointResource, *fakeAPI)
 		case call.Path == "/v1/webhook_endpoints/we_1/rotate_secret":
 			return 200, map[string]string{"object": "webhook_secret", "secret": "whsec_rotated"}
 		case call.Method == http.MethodGet:
-			return 200, map[string]interface{}{"object": "list", "data": []interface{}{endpoint(false)}}
+			return 200, endpoint(false)
 		}
 		return 200, endpoint(false)
 	})
@@ -38,11 +39,46 @@ func webhookFake(t *testing.T, active bool) (*webhookEndpointResource, *fakeAPI)
 
 func webhookModel(ctx context.Context) webhookEndpointModel {
 	events, _ := types.ListValueFrom(ctx, types.StringType, []string{"user.created"})
-	return webhookEndpointModel{
+	m := webhookEndpointModel{
 		ID: types.StringUnknown(), URL: types.StringValue("https://hooks.example/a"), EnabledEvents: events,
 		Active: types.BoolUnknown(), Secret: types.StringUnknown(), RotateTrigger: types.StringNull(),
 		FailingSince: types.Int64Unknown(), DisabledAt: types.Int64Unknown(), CreatedAt: types.Int64Unknown(),
 	}
+	withWebhookExtras(&m)
+	return m
+}
+
+// nullWebhookExtras makes the 2026-10 attributes null, for a model used as state.
+func nullWebhookExtras(m *webhookEndpointModel) {
+	m.EventNaming = types.StringNull()
+	m.External = types.BoolNull()
+	m.SignatureVersions = types.SetNull(types.StringType)
+	m.AlertContacts = types.SetNull(types.StringType)
+	m.Destination = types.MapNull(types.StringType)
+	m.DestinationCredsSet = types.BoolNull()
+	m.Health = types.StringNull()
+	m.LastSuccessAt = types.Int64Null()
+	m.ConsecutiveFailures = types.Int64Null()
+	m.LastFailingSince = types.Int64Null()
+}
+
+// withWebhookExtras fills the 2026-10 attributes with typed unknowns/nulls so a
+// model built for a plan covers the whole schema.
+func withWebhookExtras(m *webhookEndpointModel) {
+	m.Description = types.StringNull()
+	m.EventNaming = types.StringUnknown()
+	m.External = types.BoolUnknown()
+	m.SignatureVersions = types.SetUnknown(types.StringType)
+	m.AlertContacts = types.SetUnknown(types.StringType)
+	m.Destination = types.MapUnknown(types.StringType)
+	m.DestinationCreds = types.MapNull(types.StringType)
+	m.DestinationCredsSet = types.BoolUnknown()
+	m.ExternalRef = types.StringNull()
+	m.Metadata = types.MapValueMust(types.StringType, map[string]attr.Value{})
+	m.Health = types.StringUnknown()
+	m.LastSuccessAt = types.Int64Unknown()
+	m.ConsecutiveFailures = types.Int64Unknown()
+	m.LastFailingSince = types.Int64Unknown()
 }
 
 func TestWebhookEndpoint_rotateTriggerAndImportReveal(t *testing.T) {
@@ -76,6 +112,7 @@ func TestWebhookEndpoint_rotateTriggerAndImportReveal(t *testing.T) {
 	imported.Secret = types.StringNull()
 	imported.Active = types.BoolNull()
 	imported.FailingSince, imported.DisabledAt, imported.CreatedAt = types.Int64Null(), types.Int64Null(), types.Int64Null()
+	nullWebhookExtras(&imported)
 	read, rr := doRead(t, r, stateFrom(t, r, imported))
 	mustOK(t, "read", rr.Diagnostics.HasError(), rr.Diagnostics)
 	var im webhookEndpointModel
@@ -120,6 +157,7 @@ func TestWebhookEndpoint_modifyPlanMarksSecretUnknown(t *testing.T) {
 	prior := webhookModel(ctx)
 	prior.ID, prior.Secret, prior.Active = types.StringValue("we_1"), types.StringValue("whsec_a"), types.BoolValue(true)
 	prior.FailingSince, prior.DisabledAt, prior.CreatedAt = types.Int64Null(), types.Int64Null(), types.Int64Value(1)
+	nullWebhookExtras(&prior)
 	planned := prior
 	planned.RotateTrigger = types.StringValue("x")
 	res := NewWebhookEndpointResource()

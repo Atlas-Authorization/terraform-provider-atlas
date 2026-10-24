@@ -63,6 +63,12 @@ type ErrorItem struct {
 	Message string                 `json:"message"`
 	Param   string                 `json:"param,omitempty"`
 	Meta    map[string]interface{} `json:"meta,omitempty"`
+	// DidYouMean and AllowedMethods are set on ROUTE_NOT_FOUND: the closest
+	// documented paths, and the methods the path does support.
+	DidYouMean     []string `json:"did_you_mean,omitempty"`
+	AllowedMethods []string `json:"allowed_methods,omitempty"`
+	// DocsURL is where the code is documented (https://atlasauth.net/errors/<code>).
+	DocsURL string `json:"docs_url,omitempty"`
 }
 
 // APIError is returned for every non-2xx response. It keeps the HTTP status and
@@ -75,10 +81,17 @@ type APIError struct {
 func (e *APIError) Error() string {
 	if len(e.Errors) > 0 {
 		first := e.Errors[0]
-		if first.Param != "" {
-			return fmt.Sprintf("%s: %s (%s) [param=%s]", first.Code, first.Message, statusText(e.Status), first.Param)
+		hint := ""
+		switch {
+		case e.IsInsufficientScope() && e.RequiredScope() != "":
+			hint = " [required_scope=" + e.RequiredScope() + "]"
+		case first.Code == "ROUTE_NOT_FOUND" && len(first.DidYouMean) > 0:
+			hint = " [did_you_mean=" + strings.Join(first.DidYouMean, ", ") + "]"
 		}
-		return fmt.Sprintf("%s: %s (%s)", first.Code, first.Message, statusText(e.Status))
+		if first.Param != "" {
+			return fmt.Sprintf("%s: %s (%s) [param=%s]%s", first.Code, first.Message, statusText(e.Status), first.Param, hint)
+		}
+		return fmt.Sprintf("%s: %s (%s)%s", first.Code, first.Message, statusText(e.Status), hint)
 	}
 	return fmt.Sprintf("atlas API request failed with status %d", e.Status)
 }
@@ -86,6 +99,11 @@ func (e *APIError) Error() string {
 // IsNotFound reports whether the error is a 404 / NOT_FOUND. Read paths use it
 // to drop a resource from state when the object has been deleted out of band.
 func (e *APIError) IsNotFound() bool {
+	// ROUTE_NOT_FOUND is "no such route" (a wrong api_url or an older Atlas), not
+	// "the object is gone": it must surface, never drop a resource from state.
+	if e.HasCode("ROUTE_NOT_FOUND") {
+		return false
+	}
 	if e.Status == http.StatusNotFound {
 		return true
 	}
@@ -101,6 +119,35 @@ func (e *APIError) HasCode(code string) bool {
 	}
 	return false
 }
+
+// IsInsufficientScope reports a 403 INSUFFICIENT_SCOPE (the older SCOPE_MISSING
+// spelling counts too): the secret key lacks a scope the call needs.
+func (e *APIError) IsInsufficientScope() bool {
+	return e.HasCode("INSUFFICIENT_SCOPE") || e.HasCode("SCOPE_MISSING")
+}
+
+// RequiredScope is the scope an INSUFFICIENT_SCOPE refusal asks for
+// (meta.required_scope), or "".
+func (e *APIError) RequiredScope() string {
+	for _, item := range e.Errors {
+		if scope, ok := item.Meta["required_scope"].(string); ok {
+			return scope
+		}
+	}
+	return ""
+}
+
+// IsStepUpRequired reports a 403 STEP_UP_REQUIRED: the call needs a recent MFA
+// re-authentication (an operator token; a long-lived secret key never sees it).
+func (e *APIError) IsStepUpRequired() bool { return e.HasCode("STEP_UP_REQUIRED") }
+
+// IsOriginNotAllowed reports a 403 ORIGIN_NOT_ALLOWED: the key is locked to
+// other browser origins.
+func (e *APIError) IsOriginNotAllowed() bool { return e.HasCode("ORIGIN_NOT_ALLOWED") }
+
+// IsRouteNotFound reports a 404 ROUTE_NOT_FOUND: no such method + path (a
+// missing object is NOT_FOUND, which IsNotFound handles).
+func (e *APIError) IsRouteNotFound() bool { return e.HasCode("ROUTE_NOT_FOUND") }
 
 func statusText(status int) string {
 	if t := http.StatusText(status); t != "" {
@@ -122,7 +169,7 @@ func (c *Client) do(ctx context.Context, method, path string, body, out interfac
 	if c.SecretKey == "" {
 		return &APIError{Status: http.StatusUnauthorized, Errors: []ErrorItem{{
 			Code:    "MISSING_SECRET_KEY",
-			Message: "this resource needs an instance secret key (sk_...): set the provider's secret_key or ATLAS_SECRET_KEY",
+			Message: "this resource needs an instance secret key (sk_... or atlas_<env>_sk_...): set the provider's secret_key or ATLAS_SECRET_KEY",
 		}}}
 	}
 	return c.doWithKey(ctx, c.SecretKey, method, path, body, out)
@@ -134,7 +181,7 @@ func (c *Client) doPlatform(ctx context.Context, method, path string, body, out 
 	if c.PlatformKey == "" {
 		return &APIError{Status: http.StatusUnauthorized, Errors: []ErrorItem{{
 			Code:    "MISSING_PLATFORM_KEY",
-			Message: "this resource needs a platform key (psk_...): set the provider's platform_key or ATLAS_PLATFORM_KEY",
+			Message: "this resource needs a platform key (psk_... or atlas_<env>_psk_...): set the provider's platform_key or ATLAS_PLATFORM_KEY",
 		}}}
 	}
 	return c.doWithKey(ctx, c.PlatformKey, method, path, body, out)

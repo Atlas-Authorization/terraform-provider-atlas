@@ -57,3 +57,7 @@ terraform import atlas_webhook_endpoint.events whe_123
 ```
 
 The `secret` is read back from Atlas on import (an audited reveal).
+
+## New in 0.11
+
+`description`, `event_naming`, `external`, `signature_versions`, `alert_contacts`, `destination` + `destination_credentials` (EventBridge, Pub/Sub, Cloudflare Queues; set `url` or `destination`), `external_ref`, `metadata`, and read-only `health`, `last_success_at`, `consecutive_failures`, `last_failing_since`.

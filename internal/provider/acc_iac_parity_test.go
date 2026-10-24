@@ -120,9 +120,13 @@ resource "atlas_cookie_consent" "test" {
 			},
 			{ResourceName: "atlas_cookie_consent.test", ImportState: true, ImportStateId: "cookie_consent", ImportStateVerify: true},
 			{
-				// Removing the block removes the link.
+				// settings_link is computed (Atlas supplies a default link for a
+				// recognised CMP), so removing the block leaves the link in place.
 				Config: cfg(""),
-				Check:  resource.TestCheckNoResourceAttr("atlas_cookie_consent.test", "settings_link"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("atlas_cookie_consent.test", "settings_link.label", "Cookies"),
+					resource.TestCheckResourceAttr("atlas_cookie_consent.test", "settings_link.preset", "cookiebot"),
+				),
 			},
 		},
 	})

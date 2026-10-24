@@ -4,6 +4,18 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
+## 0.11.0 — 2026-10-24
+
+### Added
+
+- **`atlas_secret_key`** — a scoped runtime key (`atlas_<env>_sk_...`): `name`, `scopes`, `owner`, `expires_at`, `allowed_ips`, `allowed_origins`, `external_ref`, `metadata`; the secret is returned once (sensitive). `scopes` and `external_ref` replace; the rest update in place. Destroy revokes.
+- **`atlas_partner_link`** (inbound, with `cert_fingerprints` and `rotate_secret_trigger`) and **`atlas_outbound_partner_link`**.
+- **`atlas_integration`** (generic: a preset id or a custom id) plus the presets **`atlas_chatly_integration`**, **`atlas_forumulate_integration`**, **`atlas_cookiemunch_integration`**, **`atlas_referalli_integration`**.
+- **`atlas_webhook_endpoint`** gains `description`, `event_naming`, `external`, `signature_versions`, `alert_contacts`, event `destination` (+ write-only-style `destination_credentials`), `external_ref`, `metadata`, and the health fields `health`, `last_success_at`, `consecutive_failures`, `last_failing_since`. `url` is now optional (set `url` or `destination`).
+- **`atlas_audit_export`** (webhook or S3 sinks), **`atlas_status_subscription`**, **`atlas_status_dependency`**, **`atlas_privacy_orchestrator`** (`api_key_wo`), **`atlas_referral_settings`** (`context_cookies`, `browser_sources`, `consent_provider`, security fields; `*_wo` secrets).
+- Data sources: `atlas_whoami`, and one for each new resource above that has an id (secret key, partner link, outbound partner link, integration, webhook endpoint, audit export, status subscription, status dependency, privacy orchestrator, referral settings).
+- Errors: `INSUFFICIENT_SCOPE` shows `required_scope`; `ROUTE_NOT_FOUND` shows `did_you_mean` and never drops a resource from state; `STEP_UP_REQUIRED` and `ORIGIN_NOT_ALLOWED` helpers. Keys in `atlas_<env>_sk_` / `_psk_` form are accepted (the provider never checked the prefix).
+
 ## 0.10.0 — 2026-10-24
 
 ### Added
