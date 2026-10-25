@@ -37,6 +37,12 @@ type AtlasIDApp struct {
 	UpdatedAt  int64   `json:"updated_at"`
 	// ClientSecret is present only on create and rotate_secret responses.
 	ClientSecret *string `json:"client_secret"`
+	// TestMode is the per-app test sign-in mode: +atlas_test addresses on a
+	// verified domain sign in to this app with the fixed code 424242.
+	TestMode bool `json:"test_mode"`
+	// ProvisionedVerifiedDomainsOnly restricts the app's test and review
+	// accounts to addresses on domains the owner account verified.
+	ProvisionedVerifiedDomainsOnly bool `json:"provisioned_verified_domains_only"`
 }
 
 // AtlasIDAppWrite is the create/PATCH body. It is a map so that an explicit
@@ -120,4 +126,71 @@ func (c *Client) GetAtlasIDAppPreflight(ctx context.Context, id string) (*AtlasI
 		return nil, err
 	}
 	return &out, nil
+}
+
+// ───────────── Sign in with Atlas test and review accounts (platform key) ─────────────
+
+// AtlasIDProvisionedAccount mirrors one
+// /v1/platform/atlas_id_apps/:id/provisioned_accounts item: a real Atlas
+// account confined to the app it was made for. Password is present only on
+// create and password rotation responses (returned exactly once).
+type AtlasIDProvisionedAccount struct {
+	ID                string   `json:"id"`
+	Sub               string   `json:"sub"`
+	Email             *string  `json:"email"`
+	EmailVerified     bool     `json:"email_verified"`
+	Label             string   `json:"label"`
+	Kind              string   `json:"kind"`
+	AppIDs            []string `json:"app_ids"`
+	TwoFactorExempt   bool     `json:"two_factor_exempt"`
+	ExpiresAt         *int64   `json:"expires_at"`
+	Expired           bool     `json:"expired"`
+	LastSignInAt      *int64   `json:"last_sign_in_at"`
+	PasswordRotatedAt *int64   `json:"password_rotated_at"`
+	CreatedAt         int64    `json:"created_at"`
+	UpdatedAt         int64    `json:"updated_at"`
+	// Password is the account password, present only on create and rotation.
+	Password *string `json:"password"`
+}
+
+func provisionedAccountsPath(appID string) string {
+	return "/v1/platform/atlas_id_apps/" + url.PathEscape(appID) + "/provisioned_accounts"
+}
+
+// CreateAtlasIDProvisionedAccount creates a test or review account for an app.
+// POST /v1/platform/atlas_id_apps/:id/provisioned_accounts.
+func (c *Client) CreateAtlasIDProvisionedAccount(ctx context.Context, appID string, body map[string]interface{}) (*AtlasIDProvisionedAccount, error) {
+	var out AtlasIDProvisionedAccount
+	if err := c.doPlatform(ctx, http.MethodPost, provisionedAccountsPath(appID), body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// GetAtlasIDProvisionedAccount reads one account (never its password).
+func (c *Client) GetAtlasIDProvisionedAccount(ctx context.Context, appID, id string) (*AtlasIDProvisionedAccount, error) {
+	var out AtlasIDProvisionedAccount
+	if err := c.doPlatform(ctx, http.MethodGet, provisionedAccountsPath(appID)+"/"+url.PathEscape(id), nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// RotateAtlasIDProvisionedAccountPassword sets a new password (the given one,
+// or one Atlas generates when body is empty), returned once.
+// POST /v1/platform/atlas_id_apps/:id/provisioned_accounts/:accountId/password.
+func (c *Client) RotateAtlasIDProvisionedAccountPassword(ctx context.Context, appID, id string, body map[string]interface{}) (*AtlasIDProvisionedAccount, error) {
+	var out AtlasIDProvisionedAccount
+	if body == nil {
+		body = map[string]interface{}{}
+	}
+	if err := c.doPlatform(ctx, http.MethodPost, provisionedAccountsPath(appID)+"/"+url.PathEscape(id)+"/password", body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// DeleteAtlasIDProvisionedAccount removes the account and ends its sessions.
+func (c *Client) DeleteAtlasIDProvisionedAccount(ctx context.Context, appID, id string) error {
+	return c.doPlatform(ctx, http.MethodDelete, provisionedAccountsPath(appID)+"/"+url.PathEscape(id), nil, nil)
 }

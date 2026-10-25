@@ -51,6 +51,8 @@ type atlasIDAppModel struct {
 	ManagedByInstanceID               types.String    `tfsdk:"managed_by_instance_id"`
 	GrantsManagedByInstanceID         types.String    `tfsdk:"grants_managed_by_instance_id"`
 	ManagedVia                        types.String    `tfsdk:"managed_via"`
+	TestMode                          types.Bool      `tfsdk:"test_mode"`
+	ProvisionedVerifiedDomainsOnly    types.Bool      `tfsdk:"provisioned_verified_domains_only"`
 	CreatedAt                         types.Int64     `tfsdk:"created_at"`
 	UpdatedAt                         types.Int64     `tfsdk:"updated_at"`
 }
@@ -180,6 +182,22 @@ func (r *atlasIDAppResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				MarkdownDescription: "How the app's grants are managed: `instance_toggle`, `adopted`, or unset.",
 				Computed:            true,
 			},
+			"test_mode": schema.BoolAttribute{
+				MarkdownDescription: "Test sign-in mode (default false): an address with `+atlas_test` on a domain your " +
+					"account has verified signs in to **this app only** with the fixed code `424242`, like a development " +
+					"instance, and gets a test account confined to this app. Turning it on needs a verified domain on the " +
+					"account, otherwise the API refuses with `DOMAIN_NOT_VERIFIED`.",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+			},
+			"provisioned_verified_domains_only": schema.BoolAttribute{
+				MarkdownDescription: "Require this app's test and review accounts (`atlas_id_provisioned_account`) to use " +
+					"an email address on a domain your account has verified. Default false.",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+			},
 			"created_at": schema.Int64Attribute{Computed: true, MarkdownDescription: "Creation time (epoch ms).",
 				PlanModifiers: nil},
 			"updated_at": schema.Int64Attribute{Computed: true, MarkdownDescription: "Last update time (epoch ms)."},
@@ -212,6 +230,8 @@ func (r *atlasIDAppResource) writeBody(ctx context.Context, plan, prior *atlasID
 	for key, b := range map[string]types.Bool{
 		"backchannel_logout_session_required":  plan.BackchannelLogoutSessionRequired,
 		"frontchannel_logout_session_required": plan.FrontchannelLogoutSessionRequired,
+		"test_mode":                            plan.TestMode,
+		"provisioned_verified_domains_only":    plan.ProvisionedVerifiedDomainsOnly,
 	} {
 		if !b.IsNull() && !b.IsUnknown() {
 			body[key] = b.ValueBool()
@@ -397,6 +417,8 @@ func mapAtlasIDApp(ctx context.Context, a *client.AtlasIDApp, m *atlasIDAppModel
 	} else {
 		m.GrantsManagedByInstanceID = types.StringNull()
 	}
+	m.TestMode = types.BoolValue(a.TestMode)
+	m.ProvisionedVerifiedDomainsOnly = types.BoolValue(a.ProvisionedVerifiedDomainsOnly)
 	m.CreatedAt = types.Int64Value(a.CreatedAt)
 	m.UpdatedAt = types.Int64Value(a.UpdatedAt)
 }

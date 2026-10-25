@@ -4,6 +4,13 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
+## 0.14.0 — 2026-10-25
+
+### Added
+
+- **`atlas_id_provisioned_account`** — a test or review account for a Sign in with Atlas app (directory and app-store reviewer logins, CI, demos): a real Atlas account confined to its app. `app_id`, `email`, `label`, `email_verified`, `two_factor_exempt`, `expires_at` (all fixed at creation; changing one replaces the account). The password is write-only (`password_wo` + `password_wo_version`): it is sent to Atlas and never kept in state; changing the version rotates it in place. Without `password_wo` Atlas generates one, which lands in the sensitive `generated_password`. Read-only `sub`, `kind`, `expired`, `created_at`. Needs a platform key with `platform:atlas_id_apps:provision` (or `atlas_id_apps:<app id>:provision`). Import by `<app id>/<account id>`.
+- **`atlas_id_app`** gains `test_mode` (the per-app test sign-in mode: `+atlas_test` addresses on a verified domain sign in to the app with the fixed code) and `provisioned_verified_domains_only`.
+
 ## 0.13.0 — 2026-10-25
 
 ### Added

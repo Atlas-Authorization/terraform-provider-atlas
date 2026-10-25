@@ -25,6 +25,8 @@ account to hand it the app's grants: that instance's scoped key can then list an
 revoke them, while the app stays editable here. Removing the attribute releases the
 app. `managed_via` reports `instance_toggle`, `adopted` or unset.
 
+**Test and review accounts.** `test_mode` and `provisioned_verified_domains_only` configure how the app's test sign-ins work; create the accounts themselves with `atlas_id_provisioned_account`.
+
 API: `POST /v1/platform/atlas_id_apps`, `GET`/`PATCH`/`DELETE
 /v1/platform/atlas_id_apps/:id`, `POST /v1/platform/atlas_id_apps/:id/rotate_secret`, `PUT /v1/platform/atlas_id_apps/:id/managed_by`.
 
@@ -88,6 +90,8 @@ output "acme_client_id" {
 - `homepage_url` (String) — https URL of the app homepage.
 - `branding` (String, JSON object) — Page look for this app: `theme` (`auto` | `light` | `dark`), `accent_color` and `background_color` (`#RRGGBB`), `privacy_policy_url`, `terms_of_service_url`, `copy` (`sign_in_title`, `sign_in_subtitle`, `sign_up_title`, `sign_up_subtitle`, `consent_message`, `support_url`, `support_label`; `{app}` is replaced with the app name) and `design` (sign-in page design settings, the same shape as `atlas_instance_design.design`; images must be uploaded to your account).
 - `grants_managed_by_instance_id` (String) — Adopt the app into an instance of the same account; remove to release.
+- `test_mode` (Boolean) — Test sign-in mode (default `false`): an address with `+atlas_test` on a domain your account has verified signs in to this app only with the fixed code `424242`, like a development instance. Needs a verified domain on the account (otherwise `DOMAIN_NOT_VERIFIED`).
+- `provisioned_verified_domains_only` (Boolean) — Require this app's test and review accounts (`atlas_id_provisioned_account`) to use an address on a domain your account has verified. Default `false`.
 - `rotate_secret_trigger` (String) — Any value; changing it rotates the client secret in place. Confidential apps only.
 
 ### Read-Only

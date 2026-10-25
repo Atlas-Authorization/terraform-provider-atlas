@@ -137,6 +137,7 @@ func (p *AtlasProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewNotificationCategoryResource,
 		NewEmailTemplateResource,
 		NewAtlasIDAppResource,
+		NewAtlasIDProvisionedAccountResource,
 		NewInstanceDesignResource,
 		NewOrganizationDesignResource,
 		NewCookieConsentResource,
