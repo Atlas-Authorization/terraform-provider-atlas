@@ -159,6 +159,7 @@ func (p *AtlasProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewStatusSubscriptionResource,
 		NewStatusDependencyResource,
 		NewPrivacyOrchestratorResource,
+		NewPartnerPlatformResource,
 		NewReferralSettingsResource,
 	}
 }

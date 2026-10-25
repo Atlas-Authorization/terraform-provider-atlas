@@ -93,10 +93,14 @@ func (d *specDataSource) dataSourceSchema() dschema.Schema {
 		}
 	}
 	for name := range rs.Blocks {
-		if name != "cmp" {
+		switch name {
+		case "cmp":
+			attrs[name] = cmpDataSourceAttribute()
+		case "per_call_audience":
+			attrs[name] = perCallAudienceDataSourceAttribute()
+		default:
 			panic(fmt.Sprintf("data source %s: unsupported block %s", d.spec.name, name))
 		}
-		attrs[name] = cmpDataSourceAttribute()
 	}
 	return dschema.Schema{MarkdownDescription: d.spec.doc, Attributes: attrs}
 }
@@ -210,7 +214,7 @@ func dataSourceSpecs() []dataSourceSpec {
 			doc:    "Look up an identity integration (a preset or a custom one) by id. An integration that is not connected is an error.",
 			schema: func() rschema.Schema { return integrationSchema("") },
 			lookup: "integration",
-			skip:   []string{"audience_format", "id"},
+			skip:   []string{"audience_format", "id", "per_call_audience_disabled"},
 			load: func(ctx context.Context, c *client.Client, id string, diags *diag.Diagnostics) (tfsdk.State, bool) {
 				i, err := c.GetIntegration(ctx, id)
 				if err != nil {
@@ -224,6 +228,7 @@ func dataSourceSpecs() []dataSourceSpec {
 				var m integrationModel
 				fillIntegration(ctx, &m, i, diags)
 				m.Cmp = cmpFromAPI(ctx, i.Cmp, diags) // include a derived default
+				m.PerCallAudience = perCallAudienceFromAPI(ctx, nil, i.PerCallAudience, true, diags)
 				return stateOf(ctx, integrationSchema(""), &m, diags), true
 			},
 		},

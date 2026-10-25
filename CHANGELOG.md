@@ -4,6 +4,14 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
+## 0.13.0 — 2026-10-25
+
+### Added
+
+- **`atlas_partner_platform`** — this instance as a partner platform of another product that signs its deliveries with a published Ed25519 key set: `partner`, `name`, `platform_id`, `enabled`, `jwks_url`, `signature_header`, `signature_scheme`, `tolerance_seconds`, `allowed_sources`, `record_consents`. The partner token is write-only (`token_wo` + `token_wo_version`, with an optional `api_base_url`): it is stored once, encrypted, and never returned or kept in state. A later version rotates it. Read-only `receiver_url`, `receiver_url_template`, `registration_status`, `registered_at`, `token_set`, `token_prefix`, `last_delivery_at`, `last_delivery_error`. Import by partner id.
+- **`per_call_audience`** on `atlas_integration` and its four preset resources: a nested block (`param`, `template`, `allowed`, `any_matching`) that lets a token mint name its own audience per call. `per_call_audience_disabled` turns it off, including a preset's default. The `atlas_integration` data source shows the per-call audience in effect.
+- **`atlas_privacy_orchestrator`** gains `site_id`, `partner_link_id` (setting it turns on `use_partner_link`) and `cancel_deletion_on_sign_in`.
+
 ## 0.12.0 — 2026-10-24
 
 ### Added

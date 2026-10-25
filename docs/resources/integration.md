@@ -44,3 +44,28 @@ resource "atlas_integration" "consent" {
   }
 }
 ```
+
+## `per_call_audience` block
+
+Lets a token mint name its own audience per call (`getToken({ for, cbid })`, `?audience=`, or `?<param>=`), so one integration can serve many values (for example one audience per site). A preset already allows its own parameter for the configured value only (chatly `channel`, forumulate and referalli `org_id`, cookiemunch `cbid`); set the block to allow more values. Omit it to keep the preset's default; set `per_call_audience_disabled = true` to turn it off (cannot be combined with the block).
+
+- `param`: the query parameter that carries the value (a preset has its own).
+- `template`: custom integrations only (required there): the audience with `{param}` in it once, such as `acme:{tenant}`.
+- `allowed`: values of `param` a call may name besides the configured one (at most 50).
+- `any_matching`: allow any value that fits `audience_format` (a custom integration needs `audience_format`).
+
+The preset integrations take the same block. A preset's default is not shown in state unless you configure the block; the `atlas_integration` data source always shows what is in effect.
+
+```hcl
+resource "atlas_integration" "desk" {
+  integration = "desk"
+  name        = "Desk"
+  audience    = "desk:main"
+
+  per_call_audience {
+    param    = "tenant"
+    template = "desk:{tenant}"
+    allowed  = ["main", "eu", "us"]
+  }
+}
+```

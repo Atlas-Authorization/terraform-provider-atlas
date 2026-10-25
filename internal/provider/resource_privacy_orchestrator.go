@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,6 +20,7 @@ var (
 	_ resource.ResourceWithImportState    = &privacyOrchestratorResource{}
 	_ resource.ResourceWithConfigure      = &privacyOrchestratorResource{}
 	_ resource.ResourceWithValidateConfig = &privacyOrchestratorResource{}
+	_ resource.ResourceWithModifyPlan     = &privacyOrchestratorResource{}
 )
 
 // NewPrivacyOrchestratorResource is the factory for atlas_privacy_orchestrator.
@@ -40,6 +42,9 @@ type privacyOrchestratorModel struct {
 	APIKeyWO                  types.String `tfsdk:"api_key_wo"`
 	APIKeyWOVersion           types.Int64  `tfsdk:"api_key_wo_version"`
 	UsePartnerLink            types.Bool   `tfsdk:"use_partner_link"`
+	PartnerLinkID             types.String `tfsdk:"partner_link_id"`
+	SiteID                    types.String `tfsdk:"site_id"`
+	CancelDeletionOnSignIn    types.Bool   `tfsdk:"cancel_deletion_on_sign_in"`
 	SignRequests              types.Bool   `tfsdk:"sign_requests"`
 	OpenClosureCases          types.Bool   `tfsdk:"open_closure_cases"`
 	CompletionWebhookURL      types.String `tfsdk:"completion_webhook_url"`
@@ -131,10 +136,28 @@ func privacyOrchestratorSchema() schema.Schema {
 			},
 			"use_partner_link": schema.BoolAttribute{
 				MarkdownDescription: "Authenticate with the outbound partner link to this provider (`atlas_outbound_partner_link`) " +
-					"instead of `api_key_wo`. Default `false`.",
+					"instead of `api_key_wo`. Default `false`; on when `partner_link_id` is set.",
 				Optional: true,
 				Computed: true,
 				Default:  booldefault.StaticBool(false),
+			},
+			"partner_link_id": schema.StringAttribute{
+				MarkdownDescription: "The id of the partner link the orchestrator's owner granted this instance " +
+					"(letters, digits and `_ . : -`, at most 128). Setting it makes Atlas call the orchestrator with that grant " +
+					"(an `X-Partner-Link` header) and turns on `use_partner_link`. Unset clears it.",
+				Optional: true,
+			},
+			"site_id": schema.StringAttribute{
+				MarkdownDescription: "The orchestrator-side site id a case is for (letters, digits and `_ . : -`, at most 128). " +
+					"Unset: Atlas falls back to the site of a matching integration or outbound partner link, and a case with none is abandoned with an error naming `site_id`.",
+				Optional: true,
+			},
+			"cancel_deletion_on_sign_in": schema.BoolAttribute{
+				MarkdownDescription: "Cancel a pending account deletion when the person signs in again " +
+					"(the instance setting `compliance.retention.cancelDeletionOnSignIn`). Left unset, the current setting is kept.",
+				Optional:      true,
+				Computed:      true,
+				PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
 			},
 			"sign_requests": schema.BoolAttribute{
 				MarkdownDescription: "Sign the cases Atlas opens with an `Atlas-Signature` header. Switching it on mints " +
@@ -202,8 +225,29 @@ func (r *privacyOrchestratorResource) ValidateConfig(ctx context.Context, req re
 				"The orchestrator's api key must be 16-512 characters.")
 		}
 	}
+	if !m.PartnerLinkID.IsNull() && !m.PartnerLinkID.IsUnknown() && !m.UsePartnerLink.IsNull() && !m.UsePartnerLink.IsUnknown() && !m.UsePartnerLink.ValueBool() {
+		resp.Diagnostics.AddAttributeError(path.Root("use_partner_link"), "Conflicting settings",
+			"partner_link_id turns use_partner_link on; remove use_partner_link = false or remove partner_link_id.")
+	}
 	if !m.AuthScheme.IsNull() && !m.AuthScheme.IsUnknown() && m.AuthScheme.ValueString() != "bearer" && m.AuthScheme.ValueString() != "raw" {
 		resp.Diagnostics.AddAttributeError(path.Root("auth_scheme"), "Invalid auth_scheme", "auth_scheme must be bearer or raw.")
+	}
+}
+
+// ModifyPlan follows the server: setting partner_link_id turns use_partner_link
+// on, so a plan that leaves use_partner_link unset says so.
+func (r *privacyOrchestratorResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() {
+		return
+	}
+	var cfg, plan privacyOrchestratorModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if !cfg.PartnerLinkID.IsNull() && !cfg.PartnerLinkID.IsUnknown() && cfg.UsePartnerLink.IsNull() {
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("use_partner_link"), types.BoolValue(true))...)
 	}
 }
 
@@ -217,6 +261,13 @@ func fillPrivacyOrchestrator(m *privacyOrchestratorModel, o *client.PrivacyOrche
 	m.AuthHeader = types.StringValue(o.AuthHeader)
 	m.AuthScheme = types.StringValue(o.AuthScheme)
 	m.UsePartnerLink = types.BoolValue(o.UsePartnerLink)
+	m.PartnerLinkID = stringPtrToValue(o.PartnerLinkID)
+	m.SiteID = stringPtrToValue(o.SiteID)
+	if o.CancelDeletionOnSignIn != nil {
+		m.CancelDeletionOnSignIn = types.BoolValue(*o.CancelDeletionOnSignIn)
+	} else {
+		m.CancelDeletionOnSignIn = types.BoolValue(false)
+	}
 	m.SignRequests = types.BoolValue(o.SigningSecretSet)
 	m.OpenClosureCases = types.BoolValue(o.OpenClosureCases)
 	m.APIKeySet = types.BoolValue(o.APIKeySet)
@@ -251,6 +302,18 @@ func (r *privacyOrchestratorResource) apply(ctx context.Context, plan, config *p
 	put("auth_header", config.AuthHeader)
 	put("auth_scheme", config.AuthScheme)
 
+	// partner_link_id and site_id: a value sets it, removing it clears it.
+	for key, v := range map[string]types.String{"partner_link_id": config.PartnerLinkID, "site_id": config.SiteID} {
+		switch {
+		case !v.IsNull() && !v.IsUnknown():
+			body[key] = v.ValueString()
+		case prior != nil:
+			body[key] = nil
+		}
+	}
+	if !config.CancelDeletionOnSignIn.IsNull() && !config.CancelDeletionOnSignIn.IsUnknown() {
+		body["cancel_deletion_on_sign_in"] = config.CancelDeletionOnSignIn.ValueBool()
+	}
 	// The signing secret is minted whenever true is sent, so send it only when the
 	// setting changes (or on create), never on every apply.
 	if prior == nil || !plan.SignRequests.Equal(prior.SignRequests) {

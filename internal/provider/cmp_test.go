@@ -118,7 +118,7 @@ func integrationPlan(cmp *cmpModel) integrationModel {
 		TTLSeconds: types.Int64Unknown(), EventsURL: nullS(), BackchannelLogoutURL: nullS(), VerifyErrorReportURL: nullS(),
 		OAuthClientID: nullS(), AtlasIDUsers: types.BoolValue(false), ExternalRef: nullS(),
 		Metadata: types.MapValueMust(types.StringType, nil), Preset: unkS(), Issuer: unkS(), JWKSURL: unkS(), BackchannelLogoutSource: unkS(),
-		Cmp: cmp,
+		Cmp: cmp, PerCallAudienceDisabled: types.BoolValue(false),
 	}
 }
 

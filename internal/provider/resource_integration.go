@@ -17,9 +17,10 @@ import (
 )
 
 var (
-	_ resource.Resource                = &integrationResource{}
-	_ resource.ResourceWithImportState = &integrationResource{}
-	_ resource.ResourceWithConfigure   = &integrationResource{}
+	_ resource.Resource                   = &integrationResource{}
+	_ resource.ResourceWithImportState    = &integrationResource{}
+	_ resource.ResourceWithConfigure      = &integrationResource{}
+	_ resource.ResourceWithValidateConfig = &integrationResource{}
 )
 
 // Identity integrations: any service that verifies the signed-in user with a JWT.
@@ -52,28 +53,30 @@ type integrationResource struct {
 }
 
 type integrationModel struct {
-	ID                      types.String `tfsdk:"id"`
-	Integration             types.String `tfsdk:"integration"`
-	Name                    types.String `tfsdk:"name"`
-	Role                    types.String `tfsdk:"role"`
-	Audience                types.String `tfsdk:"audience"`
-	AudienceFormat          types.String `tfsdk:"audience_format"`
-	Enabled                 types.Bool   `tfsdk:"enabled"`
-	PrincipalClaim          types.String `tfsdk:"principal_claim"`
-	ExtClaim                types.String `tfsdk:"ext_claim"`
-	TTLSeconds              types.Int64  `tfsdk:"ttl_seconds"`
-	EventsURL               types.String `tfsdk:"events_url"`
-	BackchannelLogoutURL    types.String `tfsdk:"backchannel_logout_url"`
-	VerifyErrorReportURL    types.String `tfsdk:"verify_error_report_url"`
-	OAuthClientID           types.String `tfsdk:"oauth_client_id"`
-	AtlasIDUsers            types.Bool   `tfsdk:"atlas_id_users"`
-	ExternalRef             types.String `tfsdk:"external_ref"`
-	Metadata                types.Map    `tfsdk:"metadata"`
-	Preset                  types.String `tfsdk:"preset"`
-	Issuer                  types.String `tfsdk:"issuer"`
-	JWKSURL                 types.String `tfsdk:"jwks_url"`
-	BackchannelLogoutSource types.String `tfsdk:"backchannel_logout_source"`
-	Cmp                     *cmpModel    `tfsdk:"cmp"`
+	ID                      types.String          `tfsdk:"id"`
+	Integration             types.String          `tfsdk:"integration"`
+	Name                    types.String          `tfsdk:"name"`
+	Role                    types.String          `tfsdk:"role"`
+	Audience                types.String          `tfsdk:"audience"`
+	AudienceFormat          types.String          `tfsdk:"audience_format"`
+	Enabled                 types.Bool            `tfsdk:"enabled"`
+	PrincipalClaim          types.String          `tfsdk:"principal_claim"`
+	ExtClaim                types.String          `tfsdk:"ext_claim"`
+	TTLSeconds              types.Int64           `tfsdk:"ttl_seconds"`
+	EventsURL               types.String          `tfsdk:"events_url"`
+	BackchannelLogoutURL    types.String          `tfsdk:"backchannel_logout_url"`
+	VerifyErrorReportURL    types.String          `tfsdk:"verify_error_report_url"`
+	OAuthClientID           types.String          `tfsdk:"oauth_client_id"`
+	AtlasIDUsers            types.Bool            `tfsdk:"atlas_id_users"`
+	ExternalRef             types.String          `tfsdk:"external_ref"`
+	Metadata                types.Map             `tfsdk:"metadata"`
+	Preset                  types.String          `tfsdk:"preset"`
+	Issuer                  types.String          `tfsdk:"issuer"`
+	JWKSURL                 types.String          `tfsdk:"jwks_url"`
+	BackchannelLogoutSource types.String          `tfsdk:"backchannel_logout_source"`
+	Cmp                     *cmpModel             `tfsdk:"cmp"`
+	PerCallAudience         *perCallAudienceModel `tfsdk:"per_call_audience"`
+	PerCallAudienceDisabled types.Bool            `tfsdk:"per_call_audience_disabled"`
 }
 
 func (r *integrationResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -240,8 +243,14 @@ func integrationSchema(preset string) schema.Schema {
 				MarkdownDescription: "Where the logout receiver comes from: `integration`, `oauth_client` or `preset`.",
 				Computed:            true,
 			},
+			"per_call_audience_disabled": schema.BoolAttribute{
+				MarkdownDescription: perCallAudienceDisabledDesc,
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
+			},
 		},
-		Blocks: map[string]schema.Block{"cmp": cmpBlock()},
+		Blocks: map[string]schema.Block{"cmp": cmpBlock(), "per_call_audience": perCallAudienceBlock()},
 	}
 }
 
@@ -292,6 +301,20 @@ func fillIntegration(ctx context.Context, m *integrationModel, i *client.Integra
 	m.JWKSURL = stringPtrToValue(i.JWKSURL)
 	m.BackchannelLogoutSource = stringPtrToValue(i.BackchannelLogoutSource)
 	m.Cmp = integrationCmpState(ctx, m.Cmp, i, diags)
+	m.PerCallAudience = perCallAudienceFromAPI(ctx, m.PerCallAudience, i.PerCallAudience, false, diags)
+	if m.PerCallAudienceDisabled.IsNull() || m.PerCallAudienceDisabled.IsUnknown() {
+		m.PerCallAudienceDisabled = types.BoolValue(false)
+	}
+}
+
+// ValidateConfig rejects a per_call_audience block together with per_call_audience_disabled.
+func (r *integrationResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var m integrationModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &m)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	validatePerCallAudience(m.PerCallAudience, m.PerCallAudienceDisabled, &resp.Diagnostics)
 }
 
 // integrationCmpState decides what the cmp block holds in state. The Cookie
@@ -344,6 +367,12 @@ func (r *integrationResource) body(ctx context.Context, plan, cfg *integrationMo
 	// preset's default).
 	if cmp := cmpToAPI(ctx, plan.Cmp, diags); cmp != nil {
 		body["cmp"] = cmp
+	}
+	// Omitted keeps the preset's default; the flag turns it off; the block replaces it.
+	if plan.PerCallAudienceDisabled.ValueBool() {
+		body["per_call_audience"] = nil
+	} else if pc := perCallAudienceToAPI(ctx, plan.PerCallAudience, diags); pc != nil {
+		body["per_call_audience"] = pc
 	}
 	return body
 }

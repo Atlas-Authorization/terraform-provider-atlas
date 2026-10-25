@@ -300,9 +300,12 @@ type Integration struct {
 	// Cmp is the consent manager (script + consent_api adapter) the hosted
 	// pages load; nil when none. For the Cookie Munch preset it may be the
 	// preset's derived default.
-	Cmp       map[string]interface{} `json:"cmp"`
-	EnabledAt *int64                 `json:"enabled_at"`
-	UpdatedAt *int64                 `json:"updated_at"`
+	Cmp map[string]interface{} `json:"cmp"`
+	// PerCallAudience is { param, template, allowed, any_matching, default };
+	// nil when off.
+	PerCallAudience map[string]interface{} `json:"per_call_audience"`
+	EnabledAt       *int64                 `json:"enabled_at"`
+	UpdatedAt       *int64                 `json:"updated_at"`
 }
 
 // PutIntegration is PUT /v1/instance/integrations/:id. The body is the whole
@@ -569,25 +572,103 @@ func (c *Client) DeleteStatusDependency(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodDelete, "/v1/instance/status_dependencies/"+url.PathEscape(id), nil, nil)
 }
 
+// ───────────────────────────── Partner platforms ─────────────────────────────
+
+// PartnerPlatform is this instance as a partner platform of another product
+// (/v1/partner_platforms/:partner). It never carries the partner token: only
+// whether one is stored and its short prefix.
+type PartnerPlatform struct {
+	ID                  string   `json:"id"`
+	Partner             string   `json:"partner"`
+	Name                string   `json:"name"`
+	Preset              bool     `json:"preset"`
+	PlatformID          string   `json:"platform_id"`
+	Enabled             bool     `json:"enabled"`
+	JWKSURL             string   `json:"jwks_url"`
+	SignatureHeader     string   `json:"signature_header"`
+	SignatureScheme     string   `json:"signature_scheme"`
+	ToleranceSeconds    int64    `json:"tolerance_seconds"`
+	AllowedSources      []string `json:"allowed_sources"`
+	RecordConsents      bool     `json:"record_consents"`
+	ReceiverURL         string   `json:"receiver_url"`
+	ReceiverURLTemplate string   `json:"receiver_url_template"`
+	Registration        struct {
+		Status       string `json:"status"`
+		RegisteredAt *int64 `json:"registered_at"`
+	} `json:"registration"`
+	TokenSet          bool    `json:"token_set"`
+	TokenPrefix       *string `json:"token_prefix"`
+	LastDeliveryAt    *int64  `json:"last_delivery_at"`
+	LastDeliveryError *string `json:"last_delivery_error"`
+}
+
+func partnerPlatformPath(partner string) string {
+	return "/v1/partner_platforms/" + url.PathEscape(partner)
+}
+
+// GetPartnerPlatform is GET /v1/partner_platforms/:partner.
+func (c *Client) GetPartnerPlatform(ctx context.Context, partner string) (*PartnerPlatform, error) {
+	var out PartnerPlatform
+	if err := c.do(ctx, http.MethodGet, partnerPlatformPath(partner), nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// PutPartnerPlatform is PUT /v1/partner_platforms/:partner. The body is partial:
+// a key left out is kept (a preset fills the rest on create).
+func (c *Client) PutPartnerPlatform(ctx context.Context, partner string, body map[string]interface{}) (*PartnerPlatform, error) {
+	var out PartnerPlatform
+	if err := c.do(ctx, http.MethodPut, partnerPlatformPath(partner), body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// DeletePartnerPlatform is DELETE /v1/partner_platforms/:partner (and its stored token).
+func (c *Client) DeletePartnerPlatform(ctx context.Context, partner string) error {
+	return c.do(ctx, http.MethodDelete, partnerPlatformPath(partner), nil, nil)
+}
+
+// StorePartnerPlatformToken is POST /v1/partner_platforms/:partner/token. The
+// token goes out in the request body only; the response is the platform view,
+// which never contains it.
+func (c *Client) StorePartnerPlatformToken(ctx context.Context, partner, token string, rotate bool, apiBaseURL string) (*PartnerPlatform, error) {
+	body := map[string]interface{}{"token": token, "rotate": rotate}
+	if apiBaseURL != "" {
+		body["api_base_url"] = apiBaseURL
+	}
+	var out PartnerPlatform
+	if err := c.do(ctx, http.MethodPost, partnerPlatformPath(partner)+"/token", body, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // ───────────────────────────── Privacy orchestrator ─────────────────────────────
 
 // PrivacyOrchestrator mirrors /v1/instance/privacy_orchestrator (a singleton).
 // SigningSecret and CompletionWebhookSecret are returned once, on the write
 // that created them.
 type PrivacyOrchestrator struct {
-	Configured        bool    `json:"configured"`
-	Enabled           bool    `json:"enabled"`
-	Provider          *string `json:"provider"`
-	Name              *string `json:"name"`
-	CaseURL           *string `json:"case_url"`
-	CancelURL         *string `json:"cancel_url"`
-	AuthHeader        string  `json:"auth_header"`
-	AuthScheme        string  `json:"auth_scheme"`
-	APIKeySet         bool    `json:"api_key_set"`
-	SigningSecretSet  bool    `json:"signing_secret_set"`
-	UsePartnerLink    bool    `json:"use_partner_link"`
-	OpenClosureCases  bool    `json:"open_closure_cases"`
-	CompletionWebhook *struct {
+	Configured       bool    `json:"configured"`
+	Enabled          bool    `json:"enabled"`
+	Provider         *string `json:"provider"`
+	Name             *string `json:"name"`
+	CaseURL          *string `json:"case_url"`
+	CancelURL        *string `json:"cancel_url"`
+	AuthHeader       string  `json:"auth_header"`
+	AuthScheme       string  `json:"auth_scheme"`
+	APIKeySet        bool    `json:"api_key_set"`
+	SigningSecretSet bool    `json:"signing_secret_set"`
+	UsePartnerLink   bool    `json:"use_partner_link"`
+	PartnerLinkID    *string `json:"partner_link_id"`
+	SiteID           *string `json:"site_id"`
+	// CancelDeletionOnSignIn is the instance setting
+	// compliance.retention.cancelDeletionOnSignIn.
+	CancelDeletionOnSignIn *bool `json:"cancel_deletion_on_sign_in"`
+	OpenClosureCases       bool  `json:"open_closure_cases"`
+	CompletionWebhook      *struct {
 		WebhookEndpointID string `json:"webhook_endpoint_id"`
 		URL               string `json:"url"`
 	} `json:"completion_webhook"`
