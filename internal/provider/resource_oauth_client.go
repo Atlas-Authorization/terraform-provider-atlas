@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 
 	"github.com/atlas/terraform-provider-atlas/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -41,6 +43,7 @@ type oauthClientModel struct {
 	LogoURI                 types.String `tfsdk:"logo_uri"`
 	FirstParty              types.Bool   `tfsdk:"first_party"`
 	SkipLogoutConfirmation  types.Bool   `tfsdk:"skip_logout_confirmation"`
+	OIDCMetadata            types.String `tfsdk:"oidc_metadata"`
 	SecretPrefix            types.String `tfsdk:"secret_prefix"`
 	IsPublic                types.Bool   `tfsdk:"is_public"`
 	ClientSecret            types.String `tfsdk:"client_secret"`
@@ -115,6 +118,19 @@ func (r *oauthClientResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Computed: true,
 				Default:  booldefault.StaticBool(false),
 			},
+			"oidc_metadata": schema.StringAttribute{
+				MarkdownDescription: "OpenID metadata for the client as a JSON object (use `jsonencode`). Keys: `jwks`, `jwks_uri`, " +
+					"`tls_client_auth_subject_dn`, `id_token_signed_response_alg`, `userinfo_signed_response_alg`, " +
+					"`authorization_signed_response_alg`, `introspection_signed_response_alg`, the matching `*_encrypted_response_alg` / " +
+					"`*_encrypted_response_enc`, `request_object_signing_alg`, `request_object_encryption_alg` / `_enc`, " +
+					"`require_signed_request_object`, `request_uris`, `response_types`, `backchannel_token_delivery_mode` " +
+					"(`poll`, `ping`, `push`), `backchannel_client_notification_endpoint`, `backchannel_user_code_parameter`, " +
+					"`backchannel_authentication_request_signing_alg`, `org_selection` (`none`, `ask`, `require`), `min_app_version`, " +
+					"`native_sso_group`, `wimse_workload_id`, `tls_client_auth_san_*`, `dpop_bound_access_tokens` and " +
+					"`txn_token_unsigned_subject`. Set a key to `null` to clear it. Only the keys you list are managed; others set " +
+					"elsewhere are left alone. Not read back after an import.",
+				Optional: true,
+			},
 			"secret_prefix": schema.StringAttribute{
 				MarkdownDescription: "Non-secret prefix of the live client secret, for recognising which secret is deployed.",
 				Computed:            true,
@@ -169,6 +185,7 @@ func (r *oauthClientResource) Create(ctx context.Context, req resource.CreateReq
 		body.FirstParty = client.Ptr(plan.FirstParty.ValueBool())
 	}
 	body.SkipLogoutConfirmation = optionalBool(plan.SkipLogoutConfirmation)
+	body.Extra = oidcMetadataBody(plan.OIDCMetadata, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -233,6 +250,7 @@ func (r *oauthClientResource) Update(ctx context.Context, req resource.UpdateReq
 		body.FirstParty = client.Ptr(plan.FirstParty.ValueBool())
 	}
 	body.SkipLogoutConfirmation = optionalBool(plan.SkipLogoutConfirmation)
+	body.Extra = oidcMetadataBody(plan.OIDCMetadata, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -327,6 +345,7 @@ func (r *oauthClientResource) mapToState(ctx context.Context, c *client.OAuthCli
 	m.FirstParty = types.BoolValue(c.FirstParty)
 	m.SkipLogoutConfirmation = types.BoolValue(c.SkipLogoutConfirmation)
 	m.SecretPrefix = stringPtrToValue(c.SecretPrefix)
+	m.OIDCMetadata = oidcMetadataFromAPI(m.OIDCMetadata, c.Raw)
 	m.IsPublic = types.BoolValue(c.IsPublic)
 	m.CreatedAt = types.Int64Value(c.CreatedAt)
 	m.UpdatedAt = types.Int64Value(c.UpdatedAt)
@@ -339,4 +358,47 @@ func (r *oauthClientResource) mapToState(ctx context.Context, c *client.OAuthCli
 			m.ClientSecret = types.StringValue("")
 		}
 	}
+}
+
+// oidcMetadataBody parses the oidc_metadata JSON object into top-level request keys.
+func oidcMetadataBody(v types.String, diags *diag.Diagnostics) map[string]json.RawMessage {
+	if v.IsNull() || v.IsUnknown() || strings.TrimSpace(v.ValueString()) == "" {
+		return nil
+	}
+	var out map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(v.ValueString()), &out); err != nil {
+		diags.AddAttributeError(path.Root("oidc_metadata"), "Invalid oidc_metadata", "oidc_metadata must be a JSON object: "+err.Error())
+		return nil
+	}
+	return out
+}
+
+// oidcMetadataFromAPI returns the configured document while the server still holds
+// every key in it, and otherwise the server's values for those keys (drift). Keys
+// that were never configured are not tracked, and an unset attribute stays unset.
+func oidcMetadataFromAPI(prior types.String, raw map[string]json.RawMessage) types.String {
+	if prior.IsNull() || prior.IsUnknown() || raw == nil {
+		return prior
+	}
+	var cfg map[string]any
+	if json.Unmarshal([]byte(prior.ValueString()), &cfg) != nil {
+		return prior
+	}
+	got := map[string]any{}
+	for k := range cfg {
+		if v, ok := raw[k]; ok {
+			var x any
+			if json.Unmarshal(v, &x) == nil {
+				got[k] = x
+			}
+		}
+	}
+	if jsonCovers(cfg, got) {
+		return prior
+	}
+	out, err := json.Marshal(got)
+	if err != nil {
+		return prior
+	}
+	return types.StringValue(string(out))
 }

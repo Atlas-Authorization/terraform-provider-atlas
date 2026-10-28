@@ -66,6 +66,7 @@ resource "atlas_billing_plan" "free" {
 - `active` (Boolean) — Whether the plan is offered. Defaults to `true`.
 - `pricing_model` (String) — `flat`, `per_seat` or `metered`. Defaults to `flat`.
 - `trial_days` (Number) — Free trial length in days (0–3650), or omitted for none.
+- `grace_days` (Number) — Days a subscription stays usable after a failed payment before it is suspended (0–90), or omitted for the default.
 - `stripe_meter_id` (String) — Stripe meter id, for a `metered` plan.
 - `usage_unit` (String) — Usage unit label, for a `metered` plan.
 

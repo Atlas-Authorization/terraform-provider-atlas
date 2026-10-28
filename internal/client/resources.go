@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 )
@@ -33,6 +34,20 @@ type OAuthClient struct {
 	UpdatedAt               int64    `json:"updated_at"`
 	// Revealed exactly once on create/rotate; absent for a public client.
 	ClientSecret *string `json:"client_secret"`
+	// Raw is the whole response object, so the OIDC metadata keys (JWKS, signing
+	// and encryption algorithms, CIBA delivery, ...) can be read without a field each.
+	Raw map[string]json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON decodes the typed fields and keeps the raw object alongside.
+func (c *OAuthClient) UnmarshalJSON(b []byte) error {
+	type plain OAuthClient
+	var p plain
+	if err := json.Unmarshal(b, &p); err != nil {
+		return err
+	}
+	*c = OAuthClient(p)
+	return json.Unmarshal(b, &c.Raw)
 }
 
 // OAuthClientWrite is the create/update payload. Pointer fields let an update
@@ -47,6 +62,27 @@ type OAuthClientWrite struct {
 	FirstParty              *bool    `json:"first_party,omitempty"`
 	// First-party clients only; the API answers 422 on a third-party client.
 	SkipLogoutConfirmation *bool `json:"skip_logout_confirmation,omitempty"`
+	// Extra holds the OIDC metadata keys (jwks, jwks_uri, id_token_signed_response_alg,
+	// backchannel_token_delivery_mode, ...). They are merged into the request body as
+	// top-level keys; a null value clears a key.
+	Extra map[string]json.RawMessage `json:"-"`
+}
+
+// MarshalJSON writes the typed fields, then merges Extra over them.
+func (w OAuthClientWrite) MarshalJSON() ([]byte, error) {
+	type plain OAuthClientWrite
+	base, err := json.Marshal(plain(w))
+	if err != nil || len(w.Extra) == 0 {
+		return base, err
+	}
+	merged := map[string]json.RawMessage{}
+	if err := json.Unmarshal(base, &merged); err != nil {
+		return nil, err
+	}
+	for k, v := range w.Extra {
+		merged[k] = v
+	}
+	return json.Marshal(merged)
 }
 
 func (c *Client) CreateOAuthClient(ctx context.Context, body OAuthClientWrite) (*OAuthClient, error) {

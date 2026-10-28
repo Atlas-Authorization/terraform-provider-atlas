@@ -118,6 +118,7 @@ type BillingPlan struct {
 	Active        bool               `json:"active"`
 	PricingModel  string             `json:"pricing_model"`
 	TrialDays     *int64             `json:"trial_days"`
+	GraceDays     *int64             `json:"grace_days"`
 	StripeMeterID *string            `json:"stripe_meter_id"`
 	UsageUnit     *string            `json:"usage_unit"`
 	CreatedAt     int64              `json:"created_at"`
@@ -140,6 +141,7 @@ type BillingPlanWrite struct {
 	Active        *bool               `json:"active,omitempty"`
 	PricingModel  *string             `json:"pricing_model,omitempty"`
 	TrialDays     *int64              `json:"trial_days,omitempty"`
+	GraceDays     *int64              `json:"grace_days,omitempty"`
 	StripeMeterID *string             `json:"stripe_meter_id,omitempty"`
 	UsageUnit     *string             `json:"usage_unit,omitempty"`
 }
