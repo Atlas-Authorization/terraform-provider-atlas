@@ -211,10 +211,23 @@ func buildPlan(t *testing.T, r resource.Resource, spec *genSpec, id string) tfsd
 	return p
 }
 
+// genIDFor is the id the fake API hands out: an id that is also a configured
+// field (an email, a key) is whatever the plan carries.
+func genIDFor(spec *genSpec) string {
+	if f := spec.idField(); f != "id" {
+		for _, a := range spec.Attrs {
+			if a.API == f && !a.Comp && a.Kind == "string" {
+				return "v-" + a.Name
+			}
+		}
+	}
+	return "obj_1"
+}
+
 func genObjectFor(spec *genSpec) map[string]interface{} {
 	obj := map[string]interface{}{"id": "obj_1"}
 	if f := spec.idField(); f != "id" {
-		obj[f] = "obj_1"
+		obj[f] = genIDFor(spec)
 	}
 	// a keyed object found by scanning a list carries its key in the list item
 	if ps := spec.params(); spec.Kind == "keyed" && spec.Match != "" && len(ps) > 0 {
@@ -244,8 +257,8 @@ func TestGenericCRUD(t *testing.T) {
 			}
 			switch spec.Kind {
 			case "coll":
-				wantID = "obj_1"
-				itemVals["id"] = "obj_1"
+				wantID = genIDFor(&spec)
+				itemVals["id"] = wantID
 			case "keyed":
 				parts := []string{}
 				for _, p := range spec.params() {
