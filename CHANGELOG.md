@@ -4,6 +4,14 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
+## Unreleased
+
+### Added
+
+- **83 typed resources and data sources** for the Backend API collections that had none, generated from the OpenAPI document (`scripts/gen-resources.mjs`): MCP gateways (`atlas_mcp_gateway`, `_upstream`, `_pack`, `_budget`) and `atlas_mcp_registry_entry`; `atlas_connection_action`, `atlas_connection_trigger`, `atlas_agent_lifecycle`, `atlas_telemetry_export`; `atlas_access_policy`, `atlas_device_assurance_policy`, `atlas_device_integration`, `atlas_authenticator_policy`, `atlas_email_risk_settings`, `atlas_email_suppression`; `atlas_workflow`, `atlas_chat_integration`, `atlas_iga_bundle`, `_eligibility`, `_entitlement`, `_campaign`, `_sod_rule`, `_birthright_rule`, `atlas_administrative_unit`, `atlas_organization_application`, `atlas_oauth_client_organization_access`, `atlas_organization_connection`; `atlas_fga_assertions`, `atlas_fga_materialization`, `atlas_fga_store`, `atlas_abac_*`, `atlas_billing_coupon`, `atlas_audit_retention`, `atlas_data_key_provider`; `atlas_scim_provisioning_target`, `atlas_scim_token`, `atlas_scim_resource_type`, `atlas_app_catalog_preset`, `atlas_cloud_access_target`, `atlas_wsfed_connection`; and groups, machines, actions, flows, feature flags, network zones and ACLs, log streams, custom OAuth providers, connectors, LDAP / RADIUS / directory-pull sources, SSO onboarding profiles, proxy apps, SSF streams and receivers, localizations, OAuth client profiles and more. Scalars are typed attributes; nested objects are JSON strings. Credentials are `Sensitive` and write-only: sent, never read back, never drift. Data sources: `atlas_user`, `atlas_organization`, `atlas_sso_connection` and a lookup by id for the main collections.
+- **`atlas_oauth_client.oidc_metadata`**: the OpenID client metadata keys as a JSON object (JWKS, signing and encryption algorithms, CIBA delivery, org selection, Native SSO).
+- **`atlas_billing_plan.grace_days`**, **`atlas_organization_policy.sso_bypass`** and **`it_contacts`**, **`atlas_sso_connection.require_consent_screen`**.
+
 ## 0.14.0 — 2026-10-25
 
 ### Added

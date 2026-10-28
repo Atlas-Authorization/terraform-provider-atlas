@@ -36,6 +36,8 @@ type organizationPolicyModel struct {
 	SessionIdleOverrideMs types.Int64  `tfsdk:"session_idle_override_ms"`
 	AllowedSignInMethods  types.Set    `tfsdk:"allowed_sign_in_methods"`
 	IPAllowlist           types.Set    `tfsdk:"ip_allowlist"`
+	SsoBypass             types.Set    `tfsdk:"sso_bypass"`
+	ItContacts            types.Set    `tfsdk:"it_contacts"`
 	MaxSessionAgeSeconds  types.Int64  `tfsdk:"max_session_age_seconds"`
 	EndUserPool           types.Object `tfsdk:"end_user_pool"`
 }
@@ -101,6 +103,20 @@ func (r *organizationPolicyResource) Schema(_ context.Context, _ resource.Schema
 				Computed:            true,
 				ElementType:         types.StringType,
 			},
+			"sso_bypass": schema.SetAttribute{
+				MarkdownDescription: "Break-glass: sign-in identifiers (emails) that may skip `sso_required` and use another " +
+					"method. Each use is audited. Empty/unset = nobody bypasses.",
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
+			},
+			"it_contacts": schema.SetAttribute{
+				MarkdownDescription: "Email addresses told when the org's SSO certificate is expiring, SSO sign-in fails " +
+					"or SCIM provisioning errors. Empty/unset = no alerts.",
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
+			},
 			"max_session_age_seconds": schema.Int64Attribute{
 				MarkdownDescription: "Cap the absolute session lifetime for this org's members, in seconds " +
 					"(300 – 7776000). An org may only shorten, never extend.",
@@ -148,6 +164,18 @@ func (r *organizationPolicyResource) patchFromPlan(ctx context.Context, plan *or
 		body.IPAllowlist = setToStringSlice(ctx, plan.IPAllowlist, diags)
 		if body.IPAllowlist == nil {
 			body.IPAllowlist = []string{}
+		}
+	}
+	if !plan.SsoBypass.IsNull() && !plan.SsoBypass.IsUnknown() {
+		body.SsoBypass = setToStringSlice(ctx, plan.SsoBypass, diags)
+		if body.SsoBypass == nil {
+			body.SsoBypass = []string{}
+		}
+	}
+	if !plan.ItContacts.IsNull() && !plan.ItContacts.IsUnknown() {
+		body.ItContacts = setToStringSlice(ctx, plan.ItContacts, diags)
+		if body.ItContacts == nil {
+			body.ItContacts = []string{}
 		}
 	}
 	if !plan.EndUserPool.IsNull() && !plan.EndUserPool.IsUnknown() {
@@ -256,6 +284,8 @@ func (r *organizationPolicyResource) mapToState(ctx context.Context, orgID strin
 	m.MaxSessionAgeSeconds = int64PtrToValue(p.MaxSessionAgeSeconds)
 	m.AllowedSignInMethods = stringSliceToSet(ctx, p.AllowedSignInMethods, diags)
 	m.IPAllowlist = stringSliceToSet(ctx, p.IPAllowlist, diags)
+	m.SsoBypass = stringSliceToSet(ctx, p.SsoBypass, diags)
+	m.ItContacts = stringSliceToSet(ctx, p.ItContacts, diags)
 	if p.EndUserPool == nil {
 		m.EndUserPool = types.ObjectNull(endUserPoolAttrTypes)
 		return

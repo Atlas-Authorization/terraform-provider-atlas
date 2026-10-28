@@ -398,5 +398,16 @@ var genExampleConfigs = map[string]string{
 ${specs.filter((s) => s.kind !== 'dataonly').map((s) => `	${go(s.t)}: ${'`'}${examples[s.t].replace(/`/g, '')}${'`'},`).join('\n')}
 }
 `);
+// docs/index.md: the generated tables live between markers
+{
+  const first = (d) => d.split(/(?<=\.)\s/)[0].replace(/\|/g, '/');
+  const rows = specs.filter((s) => s.kind !== 'dataonly').map((s) => `| [\`atlas_${s.t}\`](resources/${s.t}.md) | ${first(s.desc)} |`);
+  const drows = specs.filter((s) => s.ds || s.kind === 'dataonly').map((s) => `| [\`atlas_${s.t}\`](data-sources/${s.t}.md) | Look up ${s.t.replace(/_/g, ' ')} by id. |`);
+  const block = `<!-- generated:start -->\n\n### More resources\n\n| Resource | Description |\n|----------|-------------|\n${rows.join('\n')}\n\n### More data sources\n\n| Data source | Description |\n|-------------|-------------|\n${drows.join('\n')}\n\n<!-- generated:end -->`;
+  let idx = fs.readFileSync('docs/index.md', 'utf8');
+  if (idx.includes('<!-- generated:start -->')) idx = idx.replace(/<!-- generated:start -->[\s\S]*<!-- generated:end -->/, block);
+  else idx = idx.replace(/\n+$/, '\n') + '\n' + block + '\n';
+  fs.writeFileSync('docs/index.md', idx);
+}
 console.log(`generated ${specs.length} resources`);
 for (const w of warn) console.log('WARN', w);

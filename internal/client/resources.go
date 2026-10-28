@@ -137,6 +137,7 @@ type SsoConnection struct {
 	SamlSpEntityID         *string            `json:"saml_sp_entity_id"`
 	HasSamlCertificate     bool               `json:"has_saml_certificate"`
 	SamlAllowIdpInitiated  bool               `json:"saml_allow_idp_initiated"`
+	RequireConsentScreen   bool               `json:"require_consent_screen"`
 	SamlSignAuthnRequests  bool               `json:"saml_sign_authn_requests"`
 	SamlWantResponseSigned bool               `json:"saml_want_response_signed"`
 	HasDiscourseSecret     bool               `json:"has_discourse_secret"`
@@ -162,6 +163,7 @@ type SsoConnectionWrite struct {
 	SamlIdpCertificate     *string            `json:"saml_idp_certificate,omitempty"`
 	SamlSpEntityID         *string            `json:"saml_sp_entity_id,omitempty"`
 	SamlAllowIdpInitiated  *bool              `json:"saml_allow_idp_initiated,omitempty"`
+	RequireConsentScreen   *bool              `json:"require_consent_screen,omitempty"`
 	SamlSignAuthnRequests  *bool              `json:"saml_sign_authn_requests,omitempty"`
 	SamlWantResponseSigned *bool              `json:"saml_want_response_signed,omitempty"`
 	DiscourseSecret        *string            `json:"discourse_secret,omitempty"`

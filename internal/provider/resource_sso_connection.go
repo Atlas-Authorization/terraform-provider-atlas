@@ -45,6 +45,7 @@ type ssoConnectionModel struct {
 	SamlIdpCertificate     types.String            `tfsdk:"saml_idp_certificate"`
 	SamlSpEntityID         types.String            `tfsdk:"saml_sp_entity_id"`
 	SamlAllowIdpInitiated  types.Bool              `tfsdk:"saml_allow_idp_initiated"`
+	RequireConsentScreen   types.Bool              `tfsdk:"require_consent_screen"`
 	SamlSignAuthnRequests  types.Bool              `tfsdk:"saml_sign_authn_requests"`
 	SamlWantResponseSigned types.Bool              `tfsdk:"saml_want_response_signed"`
 	DiscourseSecret        types.String            `tfsdk:"discourse_secret"`
@@ -123,6 +124,11 @@ func (r *ssoConnectionResource) Schema(_ context.Context, _ resource.SchemaReque
 			},
 			"saml_allow_idp_initiated": schema.BoolAttribute{
 				MarkdownDescription: "Allow IdP-initiated SAML sign-in.",
+				Optional:            true,
+				Computed:            true,
+			},
+			"require_consent_screen": schema.BoolAttribute{
+				MarkdownDescription: "Show the person a confirmation (\"sign in as ...\") before an SSO sign-in through this connection completes.",
 				Optional:            true,
 				Computed:            true,
 			},
@@ -282,6 +288,9 @@ func applyWritable(ctx context.Context, m *ssoConnectionModel, body *client.SsoC
 	if !m.SamlAllowIdpInitiated.IsNull() && !m.SamlAllowIdpInitiated.IsUnknown() {
 		body.SamlAllowIdpInitiated = client.Ptr(m.SamlAllowIdpInitiated.ValueBool())
 	}
+	if !m.RequireConsentScreen.IsNull() && !m.RequireConsentScreen.IsUnknown() {
+		body.RequireConsentScreen = client.Ptr(m.RequireConsentScreen.ValueBool())
+	}
 	if !m.SamlSignAuthnRequests.IsNull() && !m.SamlSignAuthnRequests.IsUnknown() {
 		body.SamlSignAuthnRequests = client.Ptr(m.SamlSignAuthnRequests.ValueBool())
 	}
@@ -318,6 +327,7 @@ func mapSsoToState(ctx context.Context, c *client.SsoConnection, m *ssoConnectio
 	m.SamlIdpSsoURL = stringPtrToValue(c.SamlIdpSsoURL)
 	m.SamlSpEntityID = stringPtrToValue(c.SamlSpEntityID)
 	m.SamlAllowIdpInitiated = types.BoolValue(c.SamlAllowIdpInitiated)
+	m.RequireConsentScreen = types.BoolValue(c.RequireConsentScreen)
 	m.SamlSignAuthnRequests = types.BoolValue(c.SamlSignAuthnRequests)
 	m.SamlWantResponseSigned = types.BoolValue(c.SamlWantResponseSigned)
 	m.DiscourseProviderURL = stringPtrToValue(c.DiscourseProviderURL)

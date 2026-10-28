@@ -185,6 +185,8 @@ type OrgPolicy struct {
 	SessionIdleOverrideMs *int64             `json:"sessionIdleOverrideMs,omitempty"`
 	AllowedSignInMethods  []string           `json:"allowedSignInMethods,omitempty"`
 	IPAllowlist           []string           `json:"ipAllowlist,omitempty"`
+	SsoBypass             []string           `json:"ssoBypass,omitempty"`
+	ItContacts            []string           `json:"itContacts,omitempty"`
 	MaxSessionAgeSeconds  *int64             `json:"maxSessionAgeSeconds,omitempty"`
 	EndUserPool           *EndUserPoolPolicy `json:"endUserPool,omitempty"`
 }
@@ -206,6 +208,8 @@ type OrgPolicyPatch struct {
 	SessionIdleOverrideMs *int64             `json:"sessionIdleOverrideMs,omitempty"`
 	AllowedSignInMethods  []string           `json:"allowedSignInMethods,omitempty"`
 	IPAllowlist           []string           `json:"ipAllowlist,omitempty"`
+	SsoBypass             []string           `json:"ssoBypass,omitempty"`
+	ItContacts            []string           `json:"itContacts,omitempty"`
 	MaxSessionAgeSeconds  *int64             `json:"maxSessionAgeSeconds,omitempty"`
 	EndUserPool           *EndUserPoolPolicy `json:"endUserPool,omitempty"`
 }
@@ -239,7 +243,7 @@ func (c *Client) SetOrgPolicyRaw(ctx context.Context, orgID string, body map[str
 // OrgPolicyKeys lists every live org-policy key (camelCase), for a full clear.
 var OrgPolicyKeys = []string{
 	"requireMfa", "ssoRequired", "sessionIdleOverrideMs", "allowedSignInMethods",
-	"ipAllowlist", "maxSessionAgeSeconds", "endUserPool",
+	"ipAllowlist", "maxSessionAgeSeconds", "endUserPool", "ssoBypass", "itContacts",
 }
 
 // GetOrgPolicy reads an organization's resolved policy. Atlas exposes no
