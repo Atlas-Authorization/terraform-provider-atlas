@@ -33,7 +33,7 @@ func TestCookieConsent_lifecycle(t *testing.T) {
 		ID: types.StringUnknown(), ScriptURL: types.StringValue("https://consent.example/uc.js"),
 		ScriptID: types.StringValue("Cookiebot"), SiteID: types.StringValue("abc"),
 		BlockingMode: types.StringNull(), ExtraOrigins: types.ListNull(types.StringType),
-		SettingsLink: types.ObjectNull(cookieSettingsLinkAttrTypes),
+		HostAliases: types.ListNull(types.StringType), SettingsLink: types.ObjectNull(cookieSettingsLinkAttrTypes),
 	})
 	state, resp := doCreate(t, r, plan)
 	mustOK(t, "create", resp.Diagnostics.HasError(), resp.Diagnostics)
@@ -85,7 +85,7 @@ func cookieConsentWithLink(link types.Object) cookieConsentModel {
 	return cookieConsentModel{
 		ID: types.StringUnknown(), ScriptURL: types.StringValue("https://consent.example/uc.js"),
 		ScriptID: types.StringNull(), SiteID: types.StringNull(), BlockingMode: types.StringNull(),
-		ExtraOrigins: types.ListNull(types.StringType), SettingsLink: link,
+		ExtraOrigins: types.ListNull(types.StringType), HostAliases: types.ListNull(types.StringType), SettingsLink: link,
 	}
 }
 
@@ -185,5 +185,68 @@ func TestCookieConsent_settingsLinkValidation(t *testing.T) {
 	}
 	if errs := validate(settingsLinkObject(t, "Cookies", none, many)); !strings.Contains(strings.Join(errs, ""), "At most 10") {
 		t.Errorf("11 attributes must be refused, got %v", errs)
+	}
+}
+
+func TestCookieConsent_hostAliases(t *testing.T) {
+	ctx := context.Background()
+	aliases := []string{"acme-fapi.atlasauth.net"}
+	c, api := newFakeAPI(t, func(call apiCall) (int, interface{}) {
+		if call.Method == http.MethodPut {
+			if v, ok := call.Body["host_aliases"].([]interface{}); ok {
+				aliases = []string{}
+				for _, h := range v {
+					aliases = append(aliases, h.(string))
+				}
+			}
+		}
+		return 200, map[string]interface{}{
+			"object": "cookie_consent", "enabled": true, "script_url": "https://consent.example/uc.js",
+			"extra_origins": []string{}, "host_aliases": aliases,
+		}
+	})
+	r := NewCookieConsentResource()
+	configureResource(t, r, c)
+	withAliases := cookieConsentWithLink(types.ObjectNull(cookieSettingsLinkAttrTypes))
+	withAliases.HostAliases = types.ListValueMust(types.StringType, []attr.Value{types.StringValue("acme-fapi.atlasauth.net")})
+	state, resp := doCreate(t, r, planFrom(t, r, withAliases))
+	mustOK(t, "create", resp.Diagnostics.HasError(), resp.Diagnostics)
+	put := api.last(http.MethodPut, "/v1/instance/cookie_consent")
+	if !reflect.DeepEqual(put.Body["host_aliases"], []interface{}{"acme-fapi.atlasauth.net"}) {
+		t.Fatalf("host_aliases sent = %v", put.Body["host_aliases"])
+	}
+	var m cookieConsentModel
+	state.Get(ctx, &m)
+	if got := listToStringSlice(ctx, m.HostAliases, &resp.Diagnostics); !reflect.DeepEqual(got, []string{"acme-fapi.atlasauth.net"}) {
+		t.Errorf("host_aliases in state = %v", got)
+	}
+
+	// Removing the attribute clears the aliases Terraform set.
+	_, ur := doUpdate(t, r, planFrom(t, r, cookieConsentWithLink(types.ObjectNull(cookieSettingsLinkAttrTypes))), state)
+	mustOK(t, "update", ur.Diagnostics.HasError(), ur.Diagnostics)
+	put = api.last(http.MethodPut, "/v1/instance/cookie_consent")
+	if !reflect.DeepEqual(put.Body["host_aliases"], []interface{}{}) {
+		t.Errorf("removed host_aliases must be sent as [], got %v", put.Body["host_aliases"])
+	}
+
+	// Never set: the key is left out, so aliases declared elsewhere stay.
+	_, cr := doCreate(t, r, planFrom(t, r, cookieConsentWithLink(types.ObjectNull(cookieSettingsLinkAttrTypes))))
+	mustOK(t, "create", cr.Diagnostics.HasError(), cr.Diagnostics)
+	if _, sent := api.last(http.MethodPut, "/v1/instance/cookie_consent").Body["host_aliases"]; sent {
+		t.Error("unset host_aliases must be omitted on create")
+	}
+
+	// More than 10 fail at plan time.
+	many := make([]attr.Value, 11)
+	for i := range many {
+		many[i] = types.StringValue("h" + string(rune('a'+i)) + ".example.com")
+	}
+	tooMany := cookieConsentWithLink(types.ObjectNull(cookieSettingsLinkAttrTypes))
+	tooMany.HostAliases = types.ListValueMust(types.StringType, many)
+	p := planFrom(t, r, tooMany)
+	var vr resource.ValidateConfigResponse
+	r.(resource.ResourceWithValidateConfig).ValidateConfig(ctx, resource.ValidateConfigRequest{Config: tfsdk.Config{Schema: p.Schema, Raw: p.Raw}}, &vr)
+	if !vr.Diagnostics.HasError() {
+		t.Error("11 host_aliases must be refused")
 	}
 }

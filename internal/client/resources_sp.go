@@ -375,6 +375,9 @@ type WebhookEndpointWrite struct {
 	DestinationCredentials map[string]interface{} `json:"destination_credentials,omitempty"`
 	ExternalRef            *string                `json:"external_ref,omitempty"`
 	Metadata               map[string]interface{} `json:"metadata,omitempty"`
+	// Secret is a client-chosen signing secret; create only (a PATCH never
+	// changes the secret, rotate_secret does).
+	Secret *string `json:"secret,omitempty"`
 }
 
 func (c *Client) CreateWebhookEndpointFull(ctx context.Context, body WebhookEndpointWrite) (*WebhookEndpointFull, error) {
@@ -734,6 +737,9 @@ type ReferralSettings struct {
 	} `json:"security"`
 	Missing   []string `json:"missing"`
 	UpdatedAt *int64   `json:"updated_at"`
+
+	PartnerPortalURL           *string `json:"partner_portal_url"`
+	ReportLinkedAtlasIDSignups bool    `json:"report_linked_atlas_id_signups"`
 }
 
 // ReferralSecurity is the nested security patch.

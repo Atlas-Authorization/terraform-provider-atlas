@@ -41,7 +41,6 @@ type billingPlanModel struct {
 	Active        types.Bool   `tfsdk:"active"`
 	PricingModel  types.String `tfsdk:"pricing_model"`
 	TrialDays     types.Int64  `tfsdk:"trial_days"`
-	GraceDays     types.Int64  `tfsdk:"grace_days"`
 	StripeMeterID types.String `tfsdk:"stripe_meter_id"`
 	UsageUnit     types.String `tfsdk:"usage_unit"`
 	CreatedAt     types.Int64  `tfsdk:"created_at"`
@@ -134,10 +133,6 @@ func (r *billingPlanResource) Schema(_ context.Context, _ resource.SchemaRequest
 				MarkdownDescription: "Free trial length in days (0–3650), or omitted for none.",
 				Optional:            true,
 			},
-			"grace_days": schema.Int64Attribute{
-				MarkdownDescription: "Days a subscription stays usable after a failed payment before it is suspended (0–90), or omitted for the default.",
-				Optional:            true,
-			},
 			"stripe_meter_id": schema.StringAttribute{
 				MarkdownDescription: "Stripe meter id, for a `metered` plan.",
 				Optional:            true,
@@ -171,7 +166,6 @@ func (r *billingPlanResource) Create(ctx context.Context, req resource.CreateReq
 		Active:        optionalBool(plan.Active),
 		PricingModel:  optionalString(plan.PricingModel),
 		TrialDays:     optionalInt64(plan.TrialDays),
-		GraceDays:     optionalInt64(plan.GraceDays),
 		StripeMeterID: optionalString(plan.StripeMeterID),
 		UsageUnit:     optionalString(plan.UsageUnit),
 	}
@@ -225,7 +219,6 @@ func (r *billingPlanResource) Update(ctx context.Context, req resource.UpdateReq
 		Active:        optionalBool(plan.Active),
 		PricingModel:  optionalString(plan.PricingModel),
 		TrialDays:     optionalInt64(plan.TrialDays),
-		GraceDays:     optionalInt64(plan.GraceDays),
 		StripeMeterID: optionalString(plan.StripeMeterID),
 		UsageUnit:     optionalString(plan.UsageUnit),
 	}
@@ -274,7 +267,6 @@ func (r *billingPlanResource) mapToState(ctx context.Context, p *client.BillingP
 	m.Active = types.BoolValue(p.Active)
 	m.PricingModel = types.StringValue(p.PricingModel)
 	m.TrialDays = int64PtrToValue(p.TrialDays)
-	m.GraceDays = int64PtrToValue(p.GraceDays)
 	m.StripeMeterID = stringPtrToValue(p.StripeMeterID)
 	m.UsageUnit = stringPtrToValue(p.UsageUnit)
 	m.CreatedAt = types.Int64Value(p.CreatedAt)

@@ -194,6 +194,40 @@ func TestInstanceConfigMapToStateKeepsConfiguredAuthConfig(t *testing.T) {
 	}
 }
 
+// inactive_methods is informational: it decodes, becomes a warning (never an
+// error) and leaves auth_config / auth_config_resolved state untouched, so
+// existing resources keep planning with no diff.
+func TestInstanceConfigInactiveMethodsAreAWarningOnly(t *testing.T) {
+	var in client.Instance
+	body := `{"id":"ins_1","auth_config":{"strategies":{"emailCode":true}},"auth_config_resolved":{"strategies":{"emailCode":true}},` +
+		`"inactive_methods":[{"method":"email_code","reason":"email_provider_required"},{"method":"password","reason":"email_provider_required"}]}`
+	if err := json.Unmarshal([]byte(body), &in); err != nil {
+		t.Fatal(err)
+	}
+	if len(in.InactiveMethods) != 2 || in.InactiveMethods[0].Method != "email_code" {
+		t.Fatalf("inactive_methods not decoded: %+v", in.InactiveMethods)
+	}
+
+	var diags diag.Diagnostics
+	addInactiveMethodsWarning(in.InactiveMethods, &diags)
+	if diags.HasError() || diags.WarningsCount() != 1 {
+		t.Fatalf("want exactly one warning and no error, got %v", diags)
+	}
+	var none diag.Diagnostics
+	addInactiveMethodsWarning(nil, &none)
+	if len(none) != 0 {
+		t.Fatalf("no inactive methods must add nothing, got %v", none)
+	}
+
+	wrote := `{"strategies":{"emailCode":true}}`
+	m := &instanceConfigModel{AuthConfig: types.StringValue(wrote)}
+	var md diag.Diagnostics
+	(&instanceConfigResource{}).mapToState(context.Background(), &in, m, &md)
+	if md.HasError() || m.AuthConfig.ValueString() != wrote {
+		t.Fatalf("auth_config state changed: %q %v", m.AuthConfig.ValueString(), md)
+	}
+}
+
 // TestAccInstanceConfig_basic sets the instance allowed_origins, verifies them,
 // then imports the singleton. auth_config is left unmanaged here so the test
 // does not mutate the instance's live auth behaviour.

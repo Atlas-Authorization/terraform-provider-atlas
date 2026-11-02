@@ -23,7 +23,17 @@ type Instance struct {
 	AllowedOrigins     []string        `json:"allowed_origins"`
 	AuthConfig         json.RawMessage `json:"auth_config"`
 	AuthConfigResolved json.RawMessage `json:"auth_config_resolved"`
-	CreatedAt          int64           `json:"created_at"`
+	// InactiveMethods lists switched-on sign-in methods the instance does not
+	// offer to users yet (reason "email_provider_required": no email provider).
+	// They become active on their own once a provider is configured.
+	InactiveMethods []InactiveMethod `json:"inactive_methods,omitempty"`
+	CreatedAt       int64            `json:"created_at"`
+}
+
+// InactiveMethod is one entry of Instance.InactiveMethods.
+type InactiveMethod struct {
+	Method string `json:"method"`
+	Reason string `json:"reason"`
 }
 
 // InstanceUpdate is the PATCH /v1/instance body. Both fields are optional; a nil
@@ -54,6 +64,30 @@ func (c *Client) UpdateInstance(ctx context.Context, body InstanceUpdate) (*Inst
 		return nil, err
 	}
 	return &out, nil
+}
+
+// Branding is the part of GET /v1/instance/branding the provider manages: the
+// hosted account page's panel toggles (a panel absent or null is shown).
+type Branding struct {
+	AccountPortal *struct {
+		Panels map[string]*bool `json:"panels"`
+	} `json:"accountPortal"`
+}
+
+// GetBranding reads the instance branding. GET /v1/instance/branding.
+func (c *Client) GetBranding(ctx context.Context) (*Branding, error) {
+	var out Branding
+	if err := c.do(ctx, http.MethodGet, "/v1/instance/branding", nil, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// PatchBranding merges a partial branding change (top-level fields replace;
+// accountPortal.panels merges per panel, a null removes one).
+// PATCH /v1/instance/branding.
+func (c *Client) PatchBranding(ctx context.Context, body map[string]interface{}) error {
+	return c.do(ctx, http.MethodPatch, "/v1/instance/branding", body, nil)
 }
 
 // ─────────────────────────── Redirect URLs ───────────────────────────
@@ -118,7 +152,6 @@ type BillingPlan struct {
 	Active        bool               `json:"active"`
 	PricingModel  string             `json:"pricing_model"`
 	TrialDays     *int64             `json:"trial_days"`
-	GraceDays     *int64             `json:"grace_days"`
 	StripeMeterID *string            `json:"stripe_meter_id"`
 	UsageUnit     *string            `json:"usage_unit"`
 	CreatedAt     int64              `json:"created_at"`
@@ -141,7 +174,6 @@ type BillingPlanWrite struct {
 	Active        *bool               `json:"active,omitempty"`
 	PricingModel  *string             `json:"pricing_model,omitempty"`
 	TrialDays     *int64              `json:"trial_days,omitempty"`
-	GraceDays     *int64              `json:"grace_days,omitempty"`
 	StripeMeterID *string             `json:"stripe_meter_id,omitempty"`
 	UsageUnit     *string             `json:"usage_unit,omitempty"`
 }
@@ -185,8 +217,6 @@ type OrgPolicy struct {
 	SessionIdleOverrideMs *int64             `json:"sessionIdleOverrideMs,omitempty"`
 	AllowedSignInMethods  []string           `json:"allowedSignInMethods,omitempty"`
 	IPAllowlist           []string           `json:"ipAllowlist,omitempty"`
-	SsoBypass             []string           `json:"ssoBypass,omitempty"`
-	ItContacts            []string           `json:"itContacts,omitempty"`
 	MaxSessionAgeSeconds  *int64             `json:"maxSessionAgeSeconds,omitempty"`
 	EndUserPool           *EndUserPoolPolicy `json:"endUserPool,omitempty"`
 }
@@ -208,8 +238,6 @@ type OrgPolicyPatch struct {
 	SessionIdleOverrideMs *int64             `json:"sessionIdleOverrideMs,omitempty"`
 	AllowedSignInMethods  []string           `json:"allowedSignInMethods,omitempty"`
 	IPAllowlist           []string           `json:"ipAllowlist,omitempty"`
-	SsoBypass             []string           `json:"ssoBypass,omitempty"`
-	ItContacts            []string           `json:"itContacts,omitempty"`
 	MaxSessionAgeSeconds  *int64             `json:"maxSessionAgeSeconds,omitempty"`
 	EndUserPool           *EndUserPoolPolicy `json:"endUserPool,omitempty"`
 }
@@ -243,7 +271,7 @@ func (c *Client) SetOrgPolicyRaw(ctx context.Context, orgID string, body map[str
 // OrgPolicyKeys lists every live org-policy key (camelCase), for a full clear.
 var OrgPolicyKeys = []string{
 	"requireMfa", "ssoRequired", "sessionIdleOverrideMs", "allowedSignInMethods",
-	"ipAllowlist", "maxSessionAgeSeconds", "endUserPool", "ssoBypass", "itContacts",
+	"ipAllowlist", "maxSessionAgeSeconds", "endUserPool",
 }
 
 // GetOrgPolicy reads an organization's resolved policy. Atlas exposes no

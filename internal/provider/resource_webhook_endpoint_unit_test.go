@@ -3,10 +3,12 @@ package provider
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -79,6 +81,8 @@ func withWebhookExtras(m *webhookEndpointModel) {
 	m.LastSuccessAt = types.Int64Unknown()
 	m.ConsecutiveFailures = types.Int64Unknown()
 	m.LastFailingSince = types.Int64Unknown()
+	m.SecretWO = types.StringNull()
+	m.SecretWOVersion = types.Int64Null()
 }
 
 func TestWebhookEndpoint_rotateTriggerAndImportReveal(t *testing.T) {
@@ -128,21 +132,24 @@ func TestWebhookEndpoint_rotateTriggerAndImportReveal(t *testing.T) {
 	}
 }
 
-func TestWebhookEndpoint_inactiveStaysInStateAndPauseOnCreate(t *testing.T) {
+func TestWebhookEndpoint_inactiveStaysInStateAndCreatedPaused(t *testing.T) {
 	ctx := context.Background()
 	r, api := webhookFake(t, false)
 	plan := webhookModel(ctx)
 	plan.Active = types.BoolValue(false)
 	state, resp := doCreate(t, r, planFrom(t, r, plan))
 	mustOK(t, "create", resp.Diagnostics.HasError(), resp.Diagnostics)
-	patch := api.last(http.MethodPatch, "/v1/webhook_endpoints/we_1")
-	if patch == nil || patch.Body["active"] != false {
-		t.Fatalf("active=false must pause the new endpoint, got %+v", patch)
+	post := api.last(http.MethodPost, "/v1/webhook_endpoints")
+	if post == nil || post.Body["active"] != false {
+		t.Fatalf("active=false must create the endpoint switched off, got %+v", post)
+	}
+	if api.count(http.MethodPatch, "/v1/webhook_endpoints/we_1") != 0 {
+		t.Error("creating a paused endpoint needs no follow-up PATCH")
 	}
 	var m webhookEndpointModel
 	state.Get(ctx, &m)
 	if m.Secret.ValueString() != "whsec_create" {
-		t.Error("pausing must keep the create-time secret")
+		t.Error("a paused endpoint must keep the create-time secret")
 	}
 	// An auto-disabled (inactive) endpoint still exists.
 	_, rr := doRead(t, r, state)
@@ -168,5 +175,58 @@ func TestWebhookEndpoint_modifyPlanMarksSecretUnknown(t *testing.T) {
 	resp.Plan.Get(ctx, &out)
 	if !out.Secret.IsUnknown() {
 		t.Error("a trigger change must plan the secret as unknown")
+	}
+}
+
+func TestWebhookEndpoint_clientChosenSecret(t *testing.T) {
+	ctx := context.Background()
+	r, api := webhookFake(t, true)
+	chosen := "whsec_" + strings.Repeat("A", 32)
+	plan := webhookModel(ctx)
+	plan.SecretWO, plan.SecretWOVersion = types.StringValue(chosen), types.Int64Value(1)
+	state, resp := doCreate(t, r, planFrom(t, r, plan))
+	mustOK(t, "create", resp.Diagnostics.HasError(), resp.Diagnostics)
+	if post := api.last(http.MethodPost, "/v1/webhook_endpoints"); post == nil || post.Body["secret"] != chosen {
+		t.Fatalf("secret_wo must be sent on create, got %+v", post)
+	}
+	var m webhookEndpointModel
+	state.Get(ctx, &m)
+	if !m.SecretWO.IsNull() {
+		t.Error("secret_wo must never be stored in state")
+	}
+
+	// An unchanged version does not rotate.
+	same := m
+	same.SecretWO = types.StringValue(chosen)
+	_, uresp := doUpdate(t, r, planFrom(t, r, same), state)
+	mustOK(t, "update", uresp.Diagnostics.HasError(), uresp.Diagnostics)
+	if api.count(http.MethodPost, "/v1/webhook_endpoints/we_1/rotate_secret") != 0 {
+		t.Error("an unchanged secret_wo_version must not rotate")
+	}
+
+	// A bumped version rotates to the new chosen secret.
+	next := "whsec_" + strings.Repeat("B", 40)
+	bumped := m
+	bumped.SecretWO, bumped.SecretWOVersion = types.StringValue(next), types.Int64Value(2)
+	updated, uresp := doUpdate(t, r, planFrom(t, r, bumped), state)
+	mustOK(t, "update", uresp.Diagnostics.HasError(), uresp.Diagnostics)
+	rot := api.last(http.MethodPost, "/v1/webhook_endpoints/we_1/rotate_secret")
+	if rot == nil || rot.Body["secret"] != next {
+		t.Fatalf("a bumped secret_wo_version must rotate to secret_wo, got %+v", rot)
+	}
+	var um webhookEndpointModel
+	updated.Get(ctx, &um)
+	if um.Secret.ValueString() != "whsec_rotated" {
+		t.Errorf("secret after rotation = %q", um.Secret.ValueString())
+	}
+
+	// A malformed secret fails at plan time.
+	bad := webhookModel(ctx)
+	bad.SecretWO = types.StringValue("whsec_short")
+	p := planFrom(t, r, bad)
+	var vr resource.ValidateConfigResponse
+	r.ValidateConfig(ctx, resource.ValidateConfigRequest{Config: tfsdk.Config{Schema: p.Schema, Raw: p.Raw}}, &vr)
+	if !vr.Diagnostics.HasError() {
+		t.Error("a malformed secret_wo must be refused")
 	}
 }
