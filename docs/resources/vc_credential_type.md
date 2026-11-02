@@ -1,26 +1,18 @@
 # atlas_vc_credential_type
 
-A verifiable credential type Atlas issues to wallets (OpenID4VCI) and verifies
-(OpenID4VP): an SD-JWT VC or an ISO 18013-5 mdoc, with each claim filled from a
-user attribute. A credential type is immutable: any change forces replacement.
+Define a credential type: its vct, and how each claim is filled from a user’s attributes. Issued as SD-JWT VC.
 
-Backend API (BAPI): `POST /v1/vc/credential_types` (create),
-`GET /v1/vc/credential_types/:id` (read), `DELETE /v1/vc/credential_types/:id`
-(delete). The API key needs the `vc:read` and `vc:write` scopes.
+Scopes: `vc:read` to read, `vc:write` to write.
+
+Backend API: `POST /v1/vc/credential_types` (create); `GET /v1/vc/credential_types/{id}` (read); no update route: every change replaces the object; `DELETE /v1/vc/credential_types/{id}` (destroy).
 
 ## Example Usage
 
 ```hcl
-resource "atlas_vc_credential_type" "mdl" {
-  name      = "Driving licence"
-  format    = "mso_mdoc"
-  vct       = "org.iso.18013.5.1.mDL"
-  namespace = "org.iso.18013.5.1"
-
-  claims = [
-    { name = "family_name", source = "last_name" },
-    { name = "birth_date", source = "public_metadata.birth_date", value_type = "full-date" },
-  ]
+resource "atlas_vc_credential_type" "example" {
+  vct = "tf-vc-credential-type"
+  name = "tf-vc-credential-type"
+  claims = jsonencode({})
 }
 ```
 
@@ -28,25 +20,32 @@ resource "atlas_vc_credential_type" "mdl" {
 
 ### Required
 
-- `vct` (String) — The credential type identifier (a URN or URL); for `mso_mdoc` the docType, for example `org.iso.18013.5.1.mDL`.
-- `name` (String) — Display name (1 to 120 characters).
-- `claims` (List of Object) — The claims of the credential, in order. Each has `name` (Required), `source` (Required: `user_id`, `email`, `first_name`, `last_name`, `username` or `public_metadata.<key>`), `disclosable` (Optional, default `true`) and `value_type` (Optional: `string`, `number`, `boolean` or `full-date`).
+- `vct` (String) The credential type identifier (a URN or URL); for mso_mdoc the docType, for example org.iso.18013.5.1.mDL.
+- `name` (String) The `name` field.
+- `claims` (String, JSON) The `claims` field. A JSON document (use `jsonencode`).
 
 ### Optional
 
-- `format` (String) — `dc+sd-jwt` (default) or `mso_mdoc`.
-- `namespace` (String) — `mso_mdoc` only: the namespace the claims live in. Defaults to the docType.
-- `iaca_roots` (List of String) — `mso_mdoc` only: PEM IACA root certificates (ISO 18013-5 Annex B). With roots set, a presentation must carry an `x5chain` leading to one of them and the issuer signature must verify under its Document Signer key; bare trusted keys are then not accepted.
-- `signer_chain` (List of String) — `mso_mdoc` only: PEM Document Signer certificate first, then intermediates, published as `x5chain` in issued mdocs. The first certificate must be for the instance's mdoc signing key (its ES256 key).
-- `lifetime_seconds` (Number) — How long an issued credential is valid, in seconds (60 to 315360000). Defaults to one year.
+- `format` (String) Default dc+sd-jwt. mso_mdoc issues an ISO 18013-5 mdoc (ES256, holder key P-256).
+- `namespace` (String) mso_mdoc only: the namespace the claims live in (default the docType).
+- `iaca_roots` (List of String) mso_mdoc only: PEM IACA root certificates (ISO 18013-5 Annex B). With roots set, a presentation must carry an x5chain leading to one of them and the issuer signature must verify under its Document Signer key; bare trusted keys are then not accepted.
+- `revocation_policy` (String) mso_mdoc only: off, best_effort (default) or required. See the credential type object.
+- `signer_chain` (List of String) mso_mdoc only: PEM Document Signer certificate first, then intermediates, published as x5chain. The first certificate must be for this instance’s mdoc signing key (the ES256 key in its key set), otherwise 400.
+- `lifetime_seconds` (Number) Default one year.
+- `require_wallet_attestation` (Boolean) The `require_wallet_attestation` field.
+- `wallet_attestation_jwks` (String, JSON) JWK Set of accepted wallet providers; required with require_wallet_attestation. A JSON document (use `jsonencode`). Not returned by the API, so it is not detected as drift.
 
 ### Read-Only
 
-- `id` (String) — Atlas object id; also the credential configuration id in the issuer metadata.
-- `require_wallet_attestation` (Boolean) — Whether the wallet must present an attestation. Set with the Backend API.
+- `id` (String) Atlas object id.
+- `created_at` (Number) Created (epoch ms).
 
 ## Import
 
+The import id is `<id>`.
+
 ```sh
-terraform import atlas_vc_credential_type.mdl vct_123
+terraform import atlas_vc_credential_type.example <id>
 ```
+
+Write-only attributes are not returned by the API, so they are empty after an import and must be set in configuration.

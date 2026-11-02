@@ -53,6 +53,8 @@ resource "atlas_organization_policy" "acme" {
   specific provider (`oauth_google`). Empty/unset = every method.
 - `ip_allowlist` (Set of String) — CIDR / IP allow-list gating sign-in for
   members of this org. Empty/unset = unrestricted.
+- `sso_bypass` (Set of String) — Break-glass: sign-in identifiers (emails) that may skip `sso_required` and use another method. Each use is audited. Empty/unset = nobody bypasses.
+- `it_contacts` (Set of String) — Email addresses told when the org's SSO certificate is expiring, SSO sign-in fails or SCIM provisioning errors. Empty/unset = no alerts.
 - `max_session_age_seconds` (Number) — Cap the absolute session lifetime for
   this org's members, in seconds (300 – 7776000). An org may only shorten, never
   extend.

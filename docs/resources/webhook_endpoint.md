@@ -28,15 +28,6 @@ resource "atlas_webhook_endpoint" "events" {
   # Change this value to rotate the signing secret.
   rotate_secret_trigger = "2026-10"
 }
-
-# A signing secret you choose (Terraform 1.11+), created switched off.
-resource "atlas_webhook_endpoint" "partner" {
-  url               = "https://partner.example.com/hooks/atlas"
-  enabled_events    = ["user.created"]
-  active            = false
-  secret_wo         = var.partner_webhook_secret # whsec_ + 32-256 characters
-  secret_wo_version = 1                          # bump to rotate to a new secret_wo
-}
 ```
 
 ## Schema
@@ -48,10 +39,8 @@ resource "atlas_webhook_endpoint" "partner" {
 ### Optional
 
 - `enabled_events` (List of String) — Event types to deliver, or `["*"]` for all. Updatable in place (the secret is preserved).
-- `active` (Boolean) — Whether the endpoint receives deliveries. `false` creates it switched off (or pauses it); `true` switches an auto-disabled endpoint back on.
+- `active` (Boolean) — Whether the endpoint receives deliveries. `false` pauses it; `true` switches an auto-disabled endpoint back on.
 - `rotate_secret_trigger` (String) — Any value; changing it rotates the signing secret in place. Deliveries signed with the old secret stop verifying at once, so update your verifier.
-- `secret_wo` (String, Sensitive, Write-only) — A signing secret you choose: `whsec_` (optionally prefixed `atlas_live_` / `atlas_test_`) followed by 32-256 characters of `A-Za-z0-9+/=_-`. Sent on create and whenever `secret_wo_version` changes (which rotates to it in place). Leave it out to let Atlas generate the secret. Needs Terraform 1.11 or later.
-- `secret_wo_version` (Number) — Any number; changing it rotates the signing secret in place to `secret_wo` (or to a new Atlas-generated one when `secret_wo` is unset).
 
 ### Read-Only
 

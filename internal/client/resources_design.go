@@ -83,7 +83,6 @@ type CookieConsent struct {
 	SiteID       *string  `json:"site_id"`
 	BlockingMode *string  `json:"blocking_mode"`
 	ExtraOrigins []string `json:"extra_origins"`
-	HostAliases  []string `json:"host_aliases"`
 	// SettingsLink is the footer "Cookie settings" link; nil when none is set.
 	SettingsLink *CookieSettingsLink `json:"settings_link"`
 }
@@ -112,9 +111,6 @@ type CookieConsentWrite struct {
 	SiteID       *string  `json:"site_id"`
 	BlockingMode *string  `json:"blocking_mode"`
 	ExtraOrigins []string `json:"extra_origins"`
-	// HostAliases nil leaves the declared host aliases as they are; an empty
-	// list clears them.
-	HostAliases *[]string `json:"host_aliases,omitempty"`
 	// SettingsLink nil sends null, which removes the link (whole-setting replace).
 	SettingsLink *CookieSettingsLinkWrite `json:"settings_link"`
 }

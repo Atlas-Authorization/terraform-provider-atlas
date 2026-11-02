@@ -118,17 +118,16 @@ func (p *AtlasProvider) Configure(ctx context.Context, req provider.ConfigureReq
 }
 
 func (p *AtlasProvider) Resources(_ context.Context) []func() resource.Resource {
+	return append(handWrittenResources(), genericResourceFactories()...)
+}
+
+func handWrittenResources() []func() resource.Resource {
 	return []func() resource.Resource{
 		NewOAuthClientResource,
 		NewOAuthProviderResource,
 		NewSsoConnectionResource,
 		NewResourceServerResource,
 		NewJwtTemplateResource,
-		NewVcCredentialTypeResource,
-		NewMcpGatewayResource,
-		NewIgaEntitlementResource,
-		NewIgaSodRuleResource,
-		NewIgaBirthrightRuleResource,
 		NewWebhookEndpointResource,
 		NewRoleResource,
 		NewOrganizationResource,
@@ -153,7 +152,6 @@ func (p *AtlasProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewPolicyResource,
 		NewPolicySourceResource,
 		NewPolicySettingsResource,
-		NewBeforeUserCreateHookResource,
 		NewSecretKeyResource,
 		NewPartnerLinkResource,
 		NewOutboundPartnerLinkResource,
@@ -168,7 +166,6 @@ func (p *AtlasProvider) Resources(_ context.Context) []func() resource.Resource 
 		NewPrivacyOrchestratorResource,
 		NewPartnerPlatformResource,
 		NewReferralSettingsResource,
-		NewJWTConnectionResource,
 	}
 }
 
@@ -181,5 +178,6 @@ func (p *AtlasProvider) DataSources(_ context.Context) []func() datasource.DataS
 		NewWhoamiDataSource,
 		NewAtlasIDAppDataSource,
 	}
-	return append(sources, specDataSourceFactories()...)
+	sources = append(sources, specDataSourceFactories()...)
+	return append(sources, genDataSourceFactories()...)
 }

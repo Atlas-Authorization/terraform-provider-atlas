@@ -88,14 +88,13 @@ terraform {
 
 | Resource                  | CRUD                       | Notes |
 |---------------------------|----------------------------|-------|
-| `atlas_oauth_client`      | Create / Read / Update / Delete | "Sign in with Atlas" relying party. `client_secret` is computed + sensitive and revealed only on create (empty for a public/PKCE client). `skip_logout_confirmation` (first-party clients only) skips the "Sign out?" page on RP-initiated logout; `refresh_touches_session` (first-party clients only) makes refreshes keep the Atlas session alive and fail once it has ended; `require_verified_email` issues no authorization code for a user whose email is not verified. |
+| `atlas_oauth_client`      | Create / Read / Update / Delete | "Sign in with Atlas" relying party. `client_secret` is computed + sensitive and revealed only on create (empty for a public/PKCE client). `skip_logout_confirmation` (first-party clients only) skips the "Sign out?" page on RP-initiated logout. |
 | `atlas_sso_connection`    | Create / Read / Update / Delete | `oidc` / `saml` / `discourse`. Secrets (`oidc_client_secret`, `saml_idp_certificate`, `discourse_secret`) are write-only; the API never returns them, so presence is tracked via `has_secret` / `has_saml_certificate` / `has_discourse_secret`. `type` is immutable (forces replacement). |
 | `atlas_resource_server`   | Create / Read / Update / Delete | Machine-token audience. `identifier` is immutable (forces replacement). |
 | `atlas_jwt_template`      | Create / Read / Update / Delete | Custom-claims map. `name` is the key and is immutable (forces replacement). |
-| `atlas_jwt_connection`    | Create / Read / Update / Delete | Trusted-JWT sign-in connection; exports `login_url`. Import by id. |
 | `atlas_webhook_endpoint`  | Create / Read / Update / Delete | `url`, `enabled_events` and `active` update in place (the signing secret is preserved). `rotate_secret_trigger` rotates the secret in place; on import the secret is read back. |
 | `atlas_role`              | Create / Read / Update / Delete | Custom org role. `key` is immutable (forces replacement); permissions are applied via a separate endpoint and unknown keys are dropped by the API. |
-| `atlas_organization`      | Create / Read / Update / Delete | `created_by` (an existing user id) is optional and immutable (forces replacement); `external_id`, `public_metadata`, `private_metadata` and `role_mappings` update in place. |
+| `atlas_organization`      | Create / Read / Update / Delete | `created_by` (an existing user id) is required and immutable (forces replacement). |
 | `atlas_organization_policy` | Create / Read / Update / Delete | Per-org security policy: `require_mfa`, `sso_required`, `allowed_sign_in_methods`, `ip_allowlist`, `max_session_age_seconds`, `session_idle_override_ms`. Keyed by `organization_id`. Atlas has no policy GET, so reads use an idempotent empty merge (records an audit entry per refresh). |
 | `atlas_domain`            | Create / Read / Delete     | Custom instance domain (`fapi` / `accounts`). No update route, so `role` and `host` force replacement. Point a CNAME at `cname_target`, then verify out of band. |
 | `atlas_instance_config`   | Create / Read / Update (Delete = unmanage) | Singleton instance config. Manages `allowed_origins` + `auth_config` via `PATCH /v1/instance`. `auth_config` is a JSON string merged server-side. Destroy only stops managing it. |
@@ -111,7 +110,6 @@ terraform {
 | `atlas_policy`            | Create / Read / Update / Delete | A policy users accept (terms of service, privacy policy, any key): `key` (immutable), `title`, `display`, `required`, `applies_to`, `reaccept`, `grace_days`. Versions are content and stay out of Terraform. Destroy deletes a never-published policy and retires one with history; a retired policy is revived by re-creating the same `key`. |
 | `atlas_policy_source`     | Create / Read / Update / Delete | Singleton external policy source: `endpoint_url`, `sync`, `poll_interval_minutes`, write-only `signing_secret_wo` + `signing_secret_wo_version`, read-only `webhook_url`. Destroy disconnects it (policies stay). |
 | `atlas_policy_settings`   | Create / Read / Update / Delete | Singleton policy settings: `session_claim` puts the `pol` claim on session tokens. Destroy turns it off. |
-| `atlas_before_user_create_hook` | Create / Read / Update / Delete | Singleton `before_user_create` hook: `url`, write-only signing secret, `timeout_ms`, `fail_closed`. Destroy switches it off. |
 
 ## Data sources
 

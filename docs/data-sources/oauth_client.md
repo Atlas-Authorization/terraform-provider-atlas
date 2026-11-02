@@ -33,8 +33,6 @@ output "dashboard_client_id" {
 - `logo_uri` (String) — Logo URL.
 - `first_party` (Boolean) — Whether the client is first-party.
 - `skip_logout_confirmation` (Boolean) — Whether an RP-initiated logout from this (first-party) client skips the "Sign out?" page.
-- `require_verified_email` (Boolean) — Whether no authorization code is issued for a user whose primary email is not verified.
-- `refresh_touches_session` (Boolean) — Whether each refresh keeps the Atlas session alive and fails once it has ended (first-party clients).
 - `secret_prefix` (String) — Non-secret prefix of the live secret.
 - `is_public` (Boolean) — Whether the client is public (PKCE).
 - `created_at` (Number) — Creation time (epoch ms).

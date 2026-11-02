@@ -64,8 +64,6 @@ type referralSettingsModel struct {
 	SigningSecretSet            types.Bool   `tfsdk:"signing_secret_set"`
 	APIKeySet                   types.Bool   `tfsdk:"api_key_set"`
 	Missing                     types.List   `tfsdk:"missing"`
-	PartnerPortalURL            types.String `tfsdk:"partner_portal_url"`
-	ReportLinkedAtlasIDSignups  types.Bool   `tfsdk:"report_linked_atlas_id_signups"`
 }
 
 func (r *referralSettingsResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -187,9 +185,6 @@ func referralSettingsSchema() schema.Schema {
 			"forward_lifecycle":         refBool("Forward user lifecycle events (verified, activated, deleted) to the platform. Default on."),
 			"mirror_to_public_metadata": refBool("Copy the referral onto the user's public metadata."),
 			"include_referral_claims":   refBool("Put the referral on session and ID tokens."),
-
-			"partner_portal_url":             refStr("The partner portal (https) where a referrer manages their partnership, linked from the \"Refer a friend\" panel on the hosted account page."),
-			"report_linked_atlas_id_signups": refBool("Report the first sign-in of an Atlas ID account to a Sign in with Atlas app this instance manages as a referred sign-up (answered by `user.referral_attributed` with source `sign_in_with_atlas`). Default `false`."),
 			"signing_secret_set": schema.BoolAttribute{
 				MarkdownDescription: "Whether Atlas holds a signing secret.",
 				Computed:            true,
@@ -250,8 +245,6 @@ func fillReferralSettings(ctx context.Context, m *referralSettingsModel, s *clie
 	m.ForwardLifecycle = types.BoolValue(s.ForwardLifecycle)
 	m.MirrorToPublicMetadata = types.BoolValue(s.MirrorToPublicMetadata)
 	m.IncludeReferralClaims = types.BoolValue(s.IncludeReferralClaims)
-	m.PartnerPortalURL = stringPtrToValue(s.PartnerPortalURL)
-	m.ReportLinkedAtlasIDSignups = types.BoolValue(s.ReportLinkedAtlasIDSignups)
 	m.SigningSecretSet = types.BoolValue(s.SigningSecretSet)
 	m.APIKeySet = types.BoolValue(s.APIKeySet)
 	m.Missing = stringSliceToList(ctx, s.Missing, diags)
@@ -281,13 +274,11 @@ func (r *referralSettingsResource) apply(ctx context.Context, plan, config, prio
 	str("link_template", config.LinkTemplate)
 	str("code_lookup_url", config.CodeLookupURL)
 	str("consent_provider", config.ConsentProvider)
-	str("partner_portal_url", config.PartnerPortalURL)
 	boolean("auto_enroll_users", config.AutoEnrollUsers)
 	boolean("signup_code_field", config.SignupCodeField)
 	boolean("forward_lifecycle", config.ForwardLifecycle)
 	boolean("mirror_to_public_metadata", config.MirrorToPublicMetadata)
 	boolean("include_referral_claims", config.IncludeReferralClaims)
-	boolean("report_linked_atlas_id_signups", config.ReportLinkedAtlasIDSignups)
 	if !config.TimeoutMs.IsNull() && !config.TimeoutMs.IsUnknown() {
 		body["timeout_ms"] = config.TimeoutMs.ValueInt64()
 	}

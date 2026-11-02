@@ -51,7 +51,6 @@ leave `preset` unset) and set `attributes`:
 - `site_id` (String) — Your CMP site id (sent as `data-cbid`).
 - `blocking_mode` (String) — The CMP prior-blocking mode, e.g. `auto` (sent as `data-blockingmode`).
 - `extra_origins` (List of String) — Other https URLs the CMP loads from or calls; each origin is added to the page CSP.
-- `host_aliases` (List of String) — Bare hostnames the hosted pages are served on that your CMP site is knowingly not registered for (typically the instance's default Frontend API host when your product has no domain of its own). A site check that finds the CMP site registered for another domain reads as ok on these hosts. At most 10. Left unset, aliases declared elsewhere are kept; removing it after setting it clears them.
 - `settings_link` (Attributes) — A **Cookie settings** link in the footer of the hosted pages that reopens your CMP's preferences, so a visitor can change or withdraw consent after the banner is gone. Unset = no link. See [below for nested schema](#nestedatt--settings_link).
 
 ### Read-Only

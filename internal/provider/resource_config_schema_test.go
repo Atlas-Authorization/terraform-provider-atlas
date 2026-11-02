@@ -39,7 +39,6 @@ func TestNewResourcesRegistered(t *testing.T) {
 		"atlas_policy":              false,
 		"atlas_policy_source":       false,
 		"atlas_policy_settings":     false,
-		"atlas_jwt_connection":      false,
 	}
 	for _, factory := range New("test")().Resources(context.Background()) {
 		name := typeNameOf(t, factory())

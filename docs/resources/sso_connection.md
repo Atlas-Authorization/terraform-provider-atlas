@@ -40,6 +40,7 @@ resource "atlas_sso_connection" "acme_oidc" {
 - `saml_idp_certificate` (String, Sensitive) — SAML IdP signing certificate (PEM). Write-only.
 - `saml_sp_entity_id` (String) — SAML service-provider entity id.
 - `saml_allow_idp_initiated` (Boolean) — Allow IdP-initiated SAML sign-in.
+- `require_consent_screen` (Boolean) — Show the person a confirmation ("sign in as ...") before an SSO sign-in through this connection completes.
 - `saml_sign_authn_requests` (Boolean) — Sign outgoing SAML AuthnRequests.
 - `saml_want_response_signed` (Boolean) — Require the SAML response itself to be signed.
 - `discourse_secret` (String, Sensitive) — Discourse SSO shared secret. Write-only.

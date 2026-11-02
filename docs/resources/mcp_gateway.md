@@ -1,51 +1,53 @@
 # atlas_mcp_gateway
 
-An MCP tool gateway: one URL that fronts your MCP server for Atlas agents. The
-agent presents its agent token; the gateway lists only the tools it may use and
-enforces per-tool scopes, argument conditions, human approval and response
-masking on each call, and audits every call.
+Create an MCP gateway: one URL (`url` in the response) that fronts your MCP server. `tools` maps a tool name to its policy (allow, scopes the agent token must hold, argument conditions, approval, response masking); `default_policy` (deny by default) decides tools not listed. upstream_authorization is write-only and sent to the upstream as its Authorization header.
 
-Backend API (BAPI): `POST /v1/mcp_gateways` (create), `GET /v1/mcp_gateways/:id`
-(read), `PATCH /v1/mcp_gateways/:id` (update), `DELETE /v1/mcp_gateways/:id`
-(delete). The API key needs the `machines:read` and `machines:write` scopes.
+Scopes: `machines:read` to read, `machines:write` to write.
+
+Backend API: `POST /v1/mcp_gateways` (create); `GET /v1/mcp_gateways/{id}` (read); `PATCH /v1/mcp_gateways/{id}` (update); `DELETE /v1/mcp_gateways/{id}` (destroy).
 
 ## Example Usage
 
 ```hcl
-resource "atlas_mcp_gateway" "billing" {
-  name                   = "Billing tools"
-  upstream_url           = "https://mcp.internal.example.com/mcp"
-  upstream_authorization = "Bearer ${var.billing_mcp_token}"
-  default_policy         = "deny"
-
-  tools = jsonencode({
-    lookup_invoice = { mask = { fields = [], presets = ["email"] } }
-    refund = {
-      scopes     = ["billing:refund"]
-      conditions = [{ arg = "amount", op = "lte", value = 100 }]
-      approval   = true
-    }
-  })
+resource "atlas_mcp_gateway" "example" {
+  name = "tf-mcp-gateway"
 }
 ```
 
-## Argument Reference
+## Schema
 
-- `name` (Required) Display name (1 to 100 characters); also the server name agents see.
-- `upstream_url` (Required) The http(s) URL of your MCP server (streamable HTTP).
-- `upstream_authorization` (Optional, Sensitive) The `Authorization` header value sent to your MCP server. Write-only: stored encrypted and never read back. Remove it to clear it.
-- `default_policy` (Optional) `deny` (default): only tools listed in `tools` are reachable. `allow`: every upstream tool is, unless its policy says otherwise.
-- `tools` (Optional) Per-tool policy as a JSON object keyed by tool name (use `jsonencode`): `allow`, `scopes`, `conditions` (`{ arg, op, value }` with `eq`, `neq`, `in`, `not_in`, `lte`, `gte`, `present`), `approval` and `mask` (`fields`, `presets`). Compared semantically; replaced as a whole on each update.
-- `enabled` (Optional) Whether the gateway answers. Defaults to `true`.
+### Required
 
-## Attribute Reference
+- `name` (String) The `name` field.
 
-- `id` The gateway id.
-- `url` The gateway URL agents connect to.
-- `has_upstream_authorization` Whether an upstream authorization is stored.
+### Optional
+
+- `upstream_url` (String) The single upstream MCP server; omit it for a gateway made only of upstreams (see /upstreams).
+- `packs_enforced` (Boolean) A caller sees only the tools of packs assigned to them.
+- `registry_only` (Boolean) Upstreams must be approved in the registry.
+- `guard` (String, JSON) Guardrails: injection (block prompt-injection in results), pii (email, card, ssn, phone: redacted in results, refused in arguments), block_patterns, pin_tools (pin tool definitions and block changed ones), max_result_chars. A JSON document (use `jsonencode`).
+- `user_auth` (String, JSON) End-user OAuth: enabled, allow_agents, groups (group name to tool list; * = everyone), required_scopes. Turns the endpoint into an RFC 9728 protected resource. A JSON document (use `jsonencode`).
+- `upstream_authorization` (String, Sensitive) The `upstream_authorization` field. Write-only: sent to Atlas, never returned, and not detected as drift.
+- `default_policy` (String) The `default_policy` field. One of: `allow`, `deny`.
+- `enabled` (Boolean) The `enabled` field.
+- `abac` (String, JSON) Authorize every tool call through the ABAC policy engine as well as the tool policy. The principal is the agent (type Agent, with name, tier, owner_user_id, organization_id, scopes, data), the action is the tool name, and the resource is the tool (type McpTool, with gateway_id, gateway_name, tool and args, the call arguments). `policy_ids` limits which policies are consulted (empty: every enabled one). With `enabled` and no permitting policy, every call is denied. A JSON document (use `jsonencode`).
+- `tools` (String, JSON) Tool name to { allow?, scopes?, conditions?: [{ arg, op: eq|neq|lte|gte|in|not_in|present, value }], approval?, mask?: { fields?, presets?: email|card|ssn|phone } }. A JSON document (use `jsonencode`).
+
+### Read-Only
+
+- `id` (String) Atlas object id.
+- `has_upstream_authorization` (Boolean) The `has_upstream_authorization` field.
+- `resource` (String) The `resource` field.
+- `resource_metadata_url` (String) The `resource_metadata_url` field.
+- `url` (String) The `url` field.
+- `created_at` (Number) The `created_at` field.
 
 ## Import
 
-```shell
-terraform import atlas_mcp_gateway.billing mgw_…
+The import id is `<id>`.
+
+```sh
+terraform import atlas_mcp_gateway.example <id>
 ```
+
+Write-only attributes are not returned by the API, so they are empty after an import and must be set in configuration.

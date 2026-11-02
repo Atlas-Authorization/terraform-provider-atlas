@@ -42,12 +42,6 @@ resource "atlas_instance_config" "this" {
       },
     ]
   }
-
-  # Hide panels of the hosted account page (/hosted/user).
-  account_portal_panels = {
-    delete_account = false
-    ciba           = false
-  }
 }
 
 output "effective_auth_config" {
@@ -68,13 +62,6 @@ output "effective_auth_config" {
   server-side. State holds exactly the patch you wrote (round-tripped verbatim),
   not the server-merged object, so a partial patch does not thrash the plan. The
   full effective configuration is exposed separately as `auth_config_resolved`.
-- `account_portal_panels` (Map of Boolean) — Panels of the hosted account page
-  (`/hosted/user`) to show (`true`) or hide (`false`): `profile`,
-  `email_addresses`, `password`, `passkeys`, `mfa`, `sessions`,
-  `linked_accounts`, `connected_apps`, `shared_resources`, `ciba`, `referrals`,
-  `delete_account`. A panel left out is shown; a panel whose feature is off is
-  never drawn. Written to the instance branding (`PATCH /v1/instance/branding`,
-  `accountPortal.panels`); a panel removed from the map is reset to the default.
 - `native_apps` (Attributes) — Typed native-app passkey association, folded into
   the `auth_config` patch under `nativeApps` before it is sent (so you configure
   it with typed HCL instead of raw JSON). A value here **takes precedence** over

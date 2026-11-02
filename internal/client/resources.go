@@ -30,14 +30,24 @@ type OAuthClient struct {
 	IsPublic                bool     `json:"is_public"`
 	FirstParty              bool     `json:"first_party"`
 	SkipLogoutConfirmation  bool     `json:"skip_logout_confirmation"`
-	RefreshTouchesSession   bool     `json:"refresh_touches_session"`
-	RequireVerifiedEmail    bool     `json:"require_verified_email"`
-	LoginURL                *string  `json:"login_url"`
-	ConsentURL              *string  `json:"consent_url"`
 	CreatedAt               int64    `json:"created_at"`
 	UpdatedAt               int64    `json:"updated_at"`
 	// Revealed exactly once on create/rotate; absent for a public client.
 	ClientSecret *string `json:"client_secret"`
+	// Raw is the whole response object, so the OIDC metadata keys (JWKS, signing
+	// and encryption algorithms, CIBA delivery, ...) can be read without a field each.
+	Raw map[string]json.RawMessage `json:"-"`
+}
+
+// UnmarshalJSON decodes the typed fields and keeps the raw object alongside.
+func (c *OAuthClient) UnmarshalJSON(b []byte) error {
+	type plain OAuthClient
+	var p plain
+	if err := json.Unmarshal(b, &p); err != nil {
+		return err
+	}
+	*c = OAuthClient(p)
+	return json.Unmarshal(b, &c.Raw)
 }
 
 // OAuthClientWrite is the create/update payload. Pointer fields let an update
@@ -52,14 +62,27 @@ type OAuthClientWrite struct {
 	FirstParty              *bool    `json:"first_party,omitempty"`
 	// First-party clients only; the API answers 422 on a third-party client.
 	SkipLogoutConfirmation *bool `json:"skip_logout_confirmation,omitempty"`
-	// First-party clients only: a refresh keeps the Atlas session alive and
-	// fails once it has ended.
-	RefreshTouchesSession *bool `json:"refresh_touches_session,omitempty"`
-	// No authorization code for a user whose primary email is not verified.
-	RequireVerifiedEmail *bool `json:"require_verified_email,omitempty"`
-	// Your own sign-in / consent pages (https). An empty string clears on update (sent as null).
-	LoginURL   *string `json:"login_url,omitempty"`
-	ConsentURL *string `json:"consent_url,omitempty"`
+	// Extra holds the OIDC metadata keys (jwks, jwks_uri, id_token_signed_response_alg,
+	// backchannel_token_delivery_mode, ...). They are merged into the request body as
+	// top-level keys; a null value clears a key.
+	Extra map[string]json.RawMessage `json:"-"`
+}
+
+// MarshalJSON writes the typed fields, then merges Extra over them.
+func (w OAuthClientWrite) MarshalJSON() ([]byte, error) {
+	type plain OAuthClientWrite
+	base, err := json.Marshal(plain(w))
+	if err != nil || len(w.Extra) == 0 {
+		return base, err
+	}
+	merged := map[string]json.RawMessage{}
+	if err := json.Unmarshal(base, &merged); err != nil {
+		return nil, err
+	}
+	for k, v := range w.Extra {
+		merged[k] = v
+	}
+	return json.Marshal(merged)
 }
 
 func (c *Client) CreateOAuthClient(ctx context.Context, body OAuthClientWrite) (*OAuthClient, error) {
@@ -114,6 +137,7 @@ type SsoConnection struct {
 	SamlSpEntityID         *string            `json:"saml_sp_entity_id"`
 	HasSamlCertificate     bool               `json:"has_saml_certificate"`
 	SamlAllowIdpInitiated  bool               `json:"saml_allow_idp_initiated"`
+	RequireConsentScreen   bool               `json:"require_consent_screen"`
 	SamlSignAuthnRequests  bool               `json:"saml_sign_authn_requests"`
 	SamlWantResponseSigned bool               `json:"saml_want_response_signed"`
 	HasDiscourseSecret     bool               `json:"has_discourse_secret"`
@@ -139,6 +163,7 @@ type SsoConnectionWrite struct {
 	SamlIdpCertificate     *string            `json:"saml_idp_certificate,omitempty"`
 	SamlSpEntityID         *string            `json:"saml_sp_entity_id,omitempty"`
 	SamlAllowIdpInitiated  *bool              `json:"saml_allow_idp_initiated,omitempty"`
+	RequireConsentScreen   *bool              `json:"require_consent_screen,omitempty"`
 	SamlSignAuthnRequests  *bool              `json:"saml_sign_authn_requests,omitempty"`
 	SamlWantResponseSigned *bool              `json:"saml_want_response_signed,omitempty"`
 	DiscourseSecret        *string            `json:"discourse_secret,omitempty"`
@@ -341,18 +366,8 @@ func (c *Client) RevealWebhookSecret(ctx context.Context, id string) (string, er
 // signed with the old one stop verifying immediately.
 // POST /v1/webhook_endpoints/:id/rotate_secret.
 func (c *Client) RotateWebhookSecret(ctx context.Context, id string) (string, error) {
-	return c.RotateWebhookSecretTo(ctx, id, nil)
-}
-
-// RotateWebhookSecretTo rotates to a client-chosen secret
-// (whsec_ + 32-256 characters); a nil secret lets Atlas mint one.
-func (c *Client) RotateWebhookSecretTo(ctx context.Context, id string, secret *string) (string, error) {
-	var body interface{}
-	if secret != nil {
-		body = map[string]string{"secret": *secret}
-	}
 	var out webhookSecret
-	if err := c.do(ctx, http.MethodPost, "/v1/webhook_endpoints/"+url.PathEscape(id)+"/rotate_secret", body, &out); err != nil {
+	if err := c.do(ctx, http.MethodPost, "/v1/webhook_endpoints/"+url.PathEscape(id)+"/rotate_secret", nil, &out); err != nil {
 		return "", err
 	}
 	return out.Secret, nil
@@ -471,49 +486,34 @@ func (c *Client) DeleteRole(ctx context.Context, id string) error {
 
 // ─────────────────────────── Organizations ───────────────────────────
 
-// Organization mirrors the bapi-organizations projection. private_metadata is
-// never returned.
+// Organization mirrors the bapi-organizations projection.
 type Organization struct {
-	ID                    string            `json:"id"`
-	Name                  string            `json:"name"`
-	Slug                  string            `json:"slug"`
-	ImageURL              *string           `json:"image_url"`
-	MaxAllowedMemberships *int64            `json:"max_allowed_memberships"`
-	CreatedBy             *string           `json:"created_by"`
-	ExternalID            *string           `json:"external_id"`
-	PublicMetadata        json.RawMessage   `json:"public_metadata"`
-	RoleMappings          map[string]string `json:"role_mappings"`
-	CreatedAt             int64             `json:"created_at"`
-	UpdatedAt             int64             `json:"updated_at"`
+	ID                    string  `json:"id"`
+	Name                  string  `json:"name"`
+	Slug                  string  `json:"slug"`
+	ImageURL              *string `json:"image_url"`
+	MaxAllowedMemberships *int64  `json:"max_allowed_memberships"`
+	CreatedBy             *string `json:"created_by"`
+	CreatedAt             int64   `json:"created_at"`
+	UpdatedAt             int64   `json:"updated_at"`
 }
 
-// OrganizationCreate is the POST /v1/organizations body. CreatedBy is optional:
-// without it the organization is created by the backend with no members yet.
-type OrganizationCreate struct {
-	Name                  string                 `json:"name"`
-	Slug                  string                 `json:"slug"`
-	CreatedBy             *string                `json:"created_by,omitempty"`
-	MaxAllowedMemberships *int64                 `json:"max_allowed_memberships,omitempty"`
-	ExternalID            *string                `json:"external_id,omitempty"`
-	PublicMetadata        map[string]interface{} `json:"public_metadata,omitempty"`
-	PrivateMetadata       map[string]interface{} `json:"private_metadata,omitempty"`
-	RoleMappings          map[string]string      `json:"role_mappings,omitempty"`
+type organizationCreate struct {
+	Name                  string `json:"name"`
+	Slug                  string `json:"slug"`
+	CreatedBy             string `json:"created_by"`
+	MaxAllowedMemberships *int64 `json:"max_allowed_memberships,omitempty"`
 }
 
-// organizationUpdate is the PATCH body. An empty ExternalID clears it; an empty
-// RoleMappings map clears the mapping; metadata objects replace the stored ones.
 type organizationUpdate struct {
-	Name                  *string                 `json:"name,omitempty"`
-	Slug                  *string                 `json:"slug,omitempty"`
-	MaxAllowedMemberships *int64                  `json:"max_allowed_memberships,omitempty"`
-	ExternalID            *string                 `json:"external_id,omitempty"`
-	PublicMetadata        *map[string]interface{} `json:"public_metadata,omitempty"`
-	PrivateMetadata       *map[string]interface{} `json:"private_metadata,omitempty"`
-	RoleMappings          *map[string]string      `json:"role_mappings,omitempty"`
+	Name                  *string `json:"name,omitempty"`
+	Slug                  *string `json:"slug,omitempty"`
+	MaxAllowedMemberships *int64  `json:"max_allowed_memberships,omitempty"`
 }
 
-func (c *Client) CreateOrganization(ctx context.Context, body OrganizationCreate) (*Organization, error) {
+func (c *Client) CreateOrganization(ctx context.Context, name, slug, createdBy string, maxMemberships *int64) (*Organization, error) {
 	var out Organization
+	body := organizationCreate{Name: name, Slug: slug, CreatedBy: createdBy, MaxAllowedMemberships: maxMemberships}
 	if err := c.do(ctx, http.MethodPost, "/v1/organizations", body, &out); err != nil {
 		return nil, err
 	}
@@ -553,43 +553,22 @@ type Domain struct {
 	Status             string  `json:"status"`
 	Action             *string `json:"action"`
 	Live               bool    `json:"live"`
-	CnameTarget        *string `json:"cname_target"`
+	CnameTarget        string  `json:"cname_target"`
 	LastCheckedAt      *int64  `json:"last_checked_at"`
 	LastObservedTarget *string `json:"last_observed_target"`
 	FailureReason      *string `json:"failure_reason"`
 	CertificateExpires *int64  `json:"certificate_expires_at"`
 	CookieDomain       *string `json:"cookie_domain"`
-	// Method is cname (a CNAME to Atlas) or path (the Frontend API mounted under
-	// BasePath on the customer's own host, proven by an https file).
-	Method         string              `json:"method"`
-	BasePath       *string             `json:"base_path"`
-	Routing        *string             `json:"routing"`
-	FrontendAPIURL *string             `json:"frontend_api_url"`
-	Verification   *DomainVerification `json:"verification"`
 }
 
-// DomainVerification is the https file that proves a path-mounted host: serve
-// Content as the whole body at URL.
-type DomainVerification struct {
-	Method       string `json:"method"`
-	URL          string `json:"url"`
-	Token        string `json:"token"`
-	Content      string `json:"content"`
-	Instructions string `json:"instructions"`
+type domainCreate struct {
+	Role string `json:"role"`
+	Host string `json:"host"`
 }
 
-// DomainCreate is the POST /v1/domains body. Method and BasePath are omitted
-// when empty (the API defaults to cname).
-type DomainCreate struct {
-	Role     string `json:"role"`
-	Host     string `json:"host"`
-	Method   string `json:"method,omitempty"`
-	BasePath string `json:"base_path,omitempty"`
-}
-
-func (c *Client) CreateDomain(ctx context.Context, body DomainCreate) (*Domain, error) {
+func (c *Client) CreateDomain(ctx context.Context, role, host string) (*Domain, error) {
 	var out Domain
-	if err := c.do(ctx, http.MethodPost, "/v1/domains", body, &out); err != nil {
+	if err := c.do(ctx, http.MethodPost, "/v1/domains", domainCreate{Role: role, Host: host}, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -712,115 +691,3 @@ func ptr[T any](v T) *T { return &v }
 
 // Ptr exposes ptr for the provider package.
 func Ptr[T any](v T) *T { return ptr(v) }
-
-// ───────────────────── Verifiable credential types ─────────────────────
-
-// VcClaim maps one credential claim to a user attribute.
-type VcClaim struct {
-	Name        string `json:"name"`
-	Source      string `json:"source"`
-	Disclosable *bool  `json:"disclosable,omitempty"`
-	ValueType   string `json:"value_type,omitempty"`
-}
-
-// VcCredentialType mirrors the /v1/vc/credential_types projection.
-type VcCredentialType struct {
-	ID                       string    `json:"id"`
-	Vct                      string    `json:"vct"`
-	Format                   string    `json:"format"`
-	Namespace                *string   `json:"namespace"`
-	IacaRoots                []string  `json:"iaca_roots"`
-	SignerChain              []string  `json:"signer_chain"`
-	Name                     string    `json:"name"`
-	Claims                   []VcClaim `json:"claims"`
-	LifetimeSeconds          int64     `json:"lifetime_seconds"`
-	RequireWalletAttestation bool      `json:"require_wallet_attestation"`
-	CreatedAt                int64     `json:"created_at"`
-}
-
-// VcCredentialTypeWrite is the create payload (a credential type is immutable).
-type VcCredentialTypeWrite struct {
-	Vct             string    `json:"vct"`
-	Name            string    `json:"name"`
-	Format          string    `json:"format,omitempty"`
-	Namespace       *string   `json:"namespace,omitempty"`
-	IacaRoots       []string  `json:"iaca_roots,omitempty"`
-	SignerChain     []string  `json:"signer_chain,omitempty"`
-	Claims          []VcClaim `json:"claims"`
-	LifetimeSeconds *int64    `json:"lifetime_seconds,omitempty"`
-}
-
-func (c *Client) CreateVcCredentialType(ctx context.Context, body VcCredentialTypeWrite) (*VcCredentialType, error) {
-	var out VcCredentialType
-	if err := c.do(ctx, http.MethodPost, "/v1/vc/credential_types", body, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
-}
-
-func (c *Client) GetVcCredentialType(ctx context.Context, id string) (*VcCredentialType, error) {
-	var out VcCredentialType
-	if err := c.do(ctx, http.MethodGet, "/v1/vc/credential_types/"+url.PathEscape(id), nil, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
-}
-
-func (c *Client) DeleteVcCredentialType(ctx context.Context, id string) error {
-	return c.do(ctx, http.MethodDelete, "/v1/vc/credential_types/"+url.PathEscape(id), nil, nil)
-}
-
-// ───────────────────────────── MCP tool gateways ─────────────────────────────
-
-// McpGateway mirrors the /v1/mcp_gateways projection. The upstream
-// authorization is write-only: a read reports only whether one is set.
-type McpGateway struct {
-	ID                       string          `json:"id"`
-	Name                     string          `json:"name"`
-	UpstreamURL              string          `json:"upstream_url"`
-	HasUpstreamAuthorization bool            `json:"has_upstream_authorization"`
-	DefaultPolicy            string          `json:"default_policy"`
-	Tools                    json.RawMessage `json:"tools"`
-	Enabled                  bool            `json:"enabled"`
-	URL                      string          `json:"url"`
-	CreatedAt                int64           `json:"created_at"`
-}
-
-// McpGatewayWrite is the create / update payload. UpstreamAuthorization is
-// always sent: a null clears it.
-type McpGatewayWrite struct {
-	Name                  string                 `json:"name"`
-	UpstreamURL           string                 `json:"upstream_url"`
-	UpstreamAuthorization *string                `json:"upstream_authorization"`
-	DefaultPolicy         string                 `json:"default_policy,omitempty"`
-	Tools                 map[string]interface{} `json:"tools"`
-	Enabled               *bool                  `json:"enabled,omitempty"`
-}
-
-func (c *Client) CreateMcpGateway(ctx context.Context, body McpGatewayWrite) (*McpGateway, error) {
-	var out McpGateway
-	if err := c.do(ctx, http.MethodPost, "/v1/mcp_gateways", body, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
-}
-
-func (c *Client) GetMcpGateway(ctx context.Context, id string) (*McpGateway, error) {
-	var out McpGateway
-	if err := c.do(ctx, http.MethodGet, "/v1/mcp_gateways/"+url.PathEscape(id), nil, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
-}
-
-func (c *Client) UpdateMcpGateway(ctx context.Context, id string, body McpGatewayWrite) (*McpGateway, error) {
-	var out McpGateway
-	if err := c.do(ctx, http.MethodPatch, "/v1/mcp_gateways/"+url.PathEscape(id), body, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
-}
-
-func (c *Client) DeleteMcpGateway(ctx context.Context, id string) error {
-	return c.do(ctx, http.MethodDelete, "/v1/mcp_gateways/"+url.PathEscape(id), nil, nil)
-}

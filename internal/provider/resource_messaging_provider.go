@@ -72,11 +72,6 @@ var emailTransports = []messagingTransport{
 		{key: "domain", required: true, description: "Your Mailgun sending domain, e.g. mg.example.com."},
 		{key: "region", description: "Mailgun region: `us` (default) or `eu`."},
 	}},
-	{"webhook", "Your own delivery endpoint", []messagingField{
-		{key: "url", required: true, description: "Your HTTPS delivery endpoint (port 443). Atlas POSTs each message here, Standard Webhooks signed."},
-		{key: "signing_secret", required: true, secret: true, description: "Secret that signs every delivery (whsec_… base64 or any string)."},
-		{key: "payload", description: "Email only: `rendered` (default) or `raw` (template name and variables)."},
-	}},
 }
 
 var smsTransports = []messagingTransport{
@@ -134,10 +129,6 @@ var smsTransports = []messagingTransport{
 		{key: "secret_access_key", required: true, secret: true, description: "IAM secret access key."},
 		{key: "session_token", secret: true, description: "STS session token, only for temporary credentials."},
 		smsFromField,
-	}},
-	{"webhook", "Your own delivery endpoint", []messagingField{
-		{key: "url", required: true, description: "Your HTTPS delivery endpoint (port 443). Atlas POSTs each message here, Standard Webhooks signed."},
-		{key: "signing_secret", required: true, secret: true, description: "Secret that signs every delivery (whsec_… base64 or any string)."},
 	}},
 }
 

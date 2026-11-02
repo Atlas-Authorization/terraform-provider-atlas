@@ -42,7 +42,6 @@ type cookieConsentModel struct {
 	SiteID       types.String `tfsdk:"site_id"`
 	BlockingMode types.String `tfsdk:"blocking_mode"`
 	ExtraOrigins types.List   `tfsdk:"extra_origins"`
-	HostAliases  types.List   `tfsdk:"host_aliases"`
 	SettingsLink types.Object `tfsdk:"settings_link"`
 }
 
@@ -66,11 +65,10 @@ var cookieSettingsLinkAttrTypes = map[string]attr.Type{
 var cookieSettingsPresets = []string{"cookiemunch", "cookiebot", "onetrust", "custom"}
 
 const (
-	cookieSettingsLabelMax      = 60
-	cookieSettingsMaxAttrs      = 10
-	cookieSettingsAttrNameMax   = 64
-	cookieSettingsAttrValueMax  = 200
-	cookieConsentHostAliasesMax = 10
+	cookieSettingsLabelMax     = 60
+	cookieSettingsMaxAttrs     = 10
+	cookieSettingsAttrNameMax  = 64
+	cookieSettingsAttrValueMax = 200
 )
 
 var (
@@ -117,13 +115,6 @@ func (r *cookieConsentResource) Schema(_ context.Context, _ resource.SchemaReque
 				Optional:            true,
 				ElementType:         types.StringType,
 			},
-			"host_aliases": schema.ListAttribute{
-				MarkdownDescription: "Bare hostnames the hosted pages are served on that your CMP site is knowingly not " +
-					"registered for (typically the instance's default Frontend API host when your product has no domain of " +
-					"its own). A site check that finds the CMP site registered for another domain reads as ok on these hosts. At most 10.",
-				Optional:    true,
-				ElementType: types.StringType,
-			},
 			"settings_link": schema.SingleNestedAttribute{
 				MarkdownDescription: "A **Cookie settings** link in the footer of the hosted pages that reopens your CMP's " +
 					"preferences, so a visitor can change or withdraw consent after the banner is gone. Set a `preset` " +
@@ -161,9 +152,7 @@ func (r *cookieConsentResource) Schema(_ context.Context, _ resource.SchemaReque
 	}
 }
 
-// apply PUTs the whole setting. priorAliases is the host_aliases state (null on
-// create): unset aliases are left alone unless they were set before, then cleared.
-func (r *cookieConsentResource) apply(ctx context.Context, m *cookieConsentModel, priorAliases types.List, diags *diag.Diagnostics) {
+func (r *cookieConsentResource) apply(ctx context.Context, m *cookieConsentModel, diags *diag.Diagnostics) {
 	body := client.CookieConsentWrite{
 		ScriptURL:    m.ScriptURL.ValueString(),
 		ScriptID:     optionalString(m.ScriptID),
@@ -171,15 +160,6 @@ func (r *cookieConsentResource) apply(ctx context.Context, m *cookieConsentModel
 		BlockingMode: optionalString(m.BlockingMode),
 		ExtraOrigins: listToStringSlice(ctx, m.ExtraOrigins, diags),
 		SettingsLink: settingsLinkFromPlan(ctx, m.SettingsLink, diags),
-	}
-	if !m.HostAliases.IsNull() && !m.HostAliases.IsUnknown() {
-		aliases := listToStringSlice(ctx, m.HostAliases, diags)
-		if aliases == nil {
-			aliases = []string{}
-		}
-		body.HostAliases = &aliases
-	} else if !priorAliases.IsNull() {
-		body.HostAliases = &[]string{}
 	}
 	if diags.HasError() {
 		return
@@ -199,12 +179,6 @@ func (r *cookieConsentResource) apply(ctx context.Context, m *cookieConsentModel
 
 // ValidateConfig checks settings_link against the API's rules at plan time.
 func (r *cookieConsentResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
-	var aliases types.List
-	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("host_aliases"), &aliases)...)
-	if !aliases.IsNull() && !aliases.IsUnknown() && len(aliases.Elements()) > cookieConsentHostAliasesMax {
-		resp.Diagnostics.AddAttributeError(path.Root("host_aliases"), "Too many host_aliases",
-			fmt.Sprintf("At most %d host aliases are allowed; found %d.", cookieConsentHostAliasesMax, len(aliases.Elements())))
-	}
 	var obj types.Object
 	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("settings_link"), &obj)...)
 	if resp.Diagnostics.HasError() || obj.IsNull() || obj.IsUnknown() {
@@ -319,7 +293,7 @@ func (r *cookieConsentResource) Create(ctx context.Context, req resource.CreateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	r.apply(ctx, &plan, types.ListNull(types.StringType), &resp.Diagnostics)
+	r.apply(ctx, &plan, &resp.Diagnostics)
 	if !resp.Diagnostics.HasError() {
 		resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 	}
@@ -345,13 +319,12 @@ func (r *cookieConsentResource) Read(ctx context.Context, req resource.ReadReque
 }
 
 func (r *cookieConsentResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan, state cookieConsentModel
+	var plan cookieConsentModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	r.apply(ctx, &plan, state.HostAliases, &resp.Diagnostics)
+	r.apply(ctx, &plan, &resp.Diagnostics)
 	if !resp.Diagnostics.HasError() {
 		resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 	}
@@ -368,7 +341,7 @@ func (r *cookieConsentResource) ImportState(ctx context.Context, req resource.Im
 }
 
 // mapCookieConsent projects the API view onto the model. An empty
-// extra_origins or host_aliases list stays null when the configuration leaves it unset.
+// extra_origins list stays null when the configuration leaves it unset.
 func mapCookieConsent(ctx context.Context, cc *client.CookieConsent, m *cookieConsentModel, diags *diag.Diagnostics) {
 	m.ID = types.StringValue("cookie_consent")
 	m.ScriptURL = stringPtrToValue(cc.ScriptURL)
@@ -377,9 +350,6 @@ func mapCookieConsent(ctx context.Context, cc *client.CookieConsent, m *cookieCo
 	m.BlockingMode = stringPtrToValue(cc.BlockingMode)
 	if len(cc.ExtraOrigins) > 0 || !m.ExtraOrigins.IsNull() {
 		m.ExtraOrigins = stringSliceToList(ctx, cc.ExtraOrigins, diags)
-	}
-	if len(cc.HostAliases) > 0 || !m.HostAliases.IsNull() {
-		m.HostAliases = stringSliceToList(ctx, cc.HostAliases, diags)
 	}
 	m.SettingsLink = settingsLinkToObject(ctx, cc.SettingsLink, m.SettingsLink, diags)
 }

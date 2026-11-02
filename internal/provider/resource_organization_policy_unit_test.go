@@ -27,6 +27,7 @@ func TestOrganizationPolicy_endUserPoolAndClearOnDelete(t *testing.T) {
 		ID: types.StringUnknown(), OrganizationID: types.StringValue("org_1"), RequireMfa: types.BoolValue(true),
 		SsoRequired: types.BoolUnknown(), SessionIdleOverrideMs: types.Int64Unknown(),
 		AllowedSignInMethods: types.SetUnknown(types.StringType), IPAllowlist: types.SetUnknown(types.StringType),
+		SsoBypass: types.SetUnknown(types.StringType), ItContacts: types.SetUnknown(types.StringType),
 		MaxSessionAgeSeconds: types.Int64Unknown(), EndUserPool: pool,
 	})
 	state, resp := doCreate(t, r, plan)

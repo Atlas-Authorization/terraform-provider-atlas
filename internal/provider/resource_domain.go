@@ -35,13 +35,6 @@ type domainModel struct {
 	CookieDomain       types.String `tfsdk:"cookie_domain"`
 	FailureReason      types.String `tfsdk:"failure_reason"`
 	CertificateExpires types.Int64  `tfsdk:"certificate_expires_at"`
-	Method             types.String `tfsdk:"method"`
-	BasePath           types.String `tfsdk:"base_path"`
-	Routing            types.String `tfsdk:"routing"`
-	FrontendAPIURL     types.String `tfsdk:"frontend_api_url"`
-	VerificationURL    types.String `tfsdk:"verification_url"`
-	VerificationToken  types.String `tfsdk:"verification_token"`
-	VerificationBody   types.String `tfsdk:"verification_content"`
 }
 
 func (r *domainResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -55,8 +48,7 @@ func (r *domainResource) Configure(_ context.Context, req resource.ConfigureRequ
 func (r *domainResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "A custom instance domain (the frontend-api `fapi` host or the `accounts` host). Point a " +
-			"CNAME at the returned cname_target (or, with `method = \"path\"`, serve `verification_content` at " +
-			"`verification_url`), then verify out of band. The Backend API has no update route, so a " +
+			"CNAME at the returned cname_target, then verify out of band. The Backend API has no update route, so a " +
 			"change to role or host replaces the domain.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -97,41 +89,6 @@ func (r *domainResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				MarkdownDescription: "Certificate expiry (epoch ms), once issued.",
 				Computed:            true,
 			},
-			"method": schema.StringAttribute{
-				MarkdownDescription: "How the host is proven: `cname` (default; a CNAME to Atlas) or `path` (the Frontend API " +
-					"served under `base_path` on a host you already run, proven by an https file, no DNS). Immutable — forces replacement.",
-				Optional:      true,
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
-			},
-			"base_path": schema.StringAttribute{
-				MarkdownDescription: "`method = \"path\"` only: the prefix the Frontend API is served under (default `/__atlas`). " +
-					"Immutable — forces replacement.",
-				Optional:      true,
-				Computed:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()},
-			},
-			"routing": schema.StringAttribute{
-				MarkdownDescription: "Path mount, once verified: `atlas_ingress` (Atlas routes the prefix) or `customer_proxy` " +
-					"(add the reverse-proxy rule yourself).",
-				Computed: true,
-			},
-			"frontend_api_url": schema.StringAttribute{
-				MarkdownDescription: "Path mount: the Frontend API URL (and, once verified, the issuer), `https://<host><base_path>`.",
-				Computed:            true,
-			},
-			"verification_url": schema.StringAttribute{
-				MarkdownDescription: "Path mount: the https URL to serve the verification file at.",
-				Computed:            true,
-			},
-			"verification_token": schema.StringAttribute{
-				MarkdownDescription: "Path mount: the verification token, bound to this instance, host and base path.",
-				Computed:            true,
-			},
-			"verification_content": schema.StringAttribute{
-				MarkdownDescription: "Path mount: the exact body to serve at `verification_url`.",
-				Computed:            true,
-			},
 		},
 	}
 }
@@ -142,12 +99,7 @@ func (r *domainResource) Create(ctx context.Context, req resource.CreateRequest,
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	created, err := r.client.CreateDomain(ctx, client.DomainCreate{
-		Role:     plan.Role.ValueString(),
-		Host:     plan.Host.ValueString(),
-		Method:   plan.Method.ValueString(),
-		BasePath: plan.BasePath.ValueString(),
-	})
+	created, err := r.client.CreateDomain(ctx, plan.Role.ValueString(), plan.Host.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to create domain", err.Error())
 		return
@@ -206,22 +158,9 @@ func (r *domainResource) mapToState(d *client.Domain, m *domainModel) {
 	m.Role = types.StringValue(d.Role)
 	m.Host = types.StringValue(d.Host)
 	m.Status = types.StringValue(d.Status)
-	m.CnameTarget = stringPtrToValue(d.CnameTarget)
+	m.CnameTarget = types.StringValue(d.CnameTarget)
 	m.Live = types.BoolValue(d.Live)
 	m.CookieDomain = stringPtrToValue(d.CookieDomain)
 	m.FailureReason = stringPtrToValue(d.FailureReason)
 	m.CertificateExpires = int64PtrToValue(d.CertificateExpires)
-	m.Method = types.StringValue(d.Method)
-	if d.Method == "" {
-		m.Method = types.StringValue("cname")
-	}
-	m.BasePath = stringPtrToValue(d.BasePath)
-	m.Routing = stringPtrToValue(d.Routing)
-	m.FrontendAPIURL = stringPtrToValue(d.FrontendAPIURL)
-	m.VerificationURL, m.VerificationToken, m.VerificationBody = types.StringNull(), types.StringNull(), types.StringNull()
-	if v := d.Verification; v != nil {
-		m.VerificationURL = types.StringValue(v.URL)
-		m.VerificationToken = types.StringValue(v.Token)
-		m.VerificationBody = types.StringValue(v.Content)
-	}
 }

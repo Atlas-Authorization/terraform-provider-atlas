@@ -197,33 +197,3 @@ func (c *Client) PutPolicySource(ctx context.Context, body PolicySourceWrite) (*
 func (c *Client) DeletePolicySource(ctx context.Context) error {
 	return c.do(ctx, http.MethodDelete, policySourcePath, nil, nil)
 }
-
-// BeforeUserCreateHook mirrors GET /v1/instance/hooks/before_user_create.
-type BeforeUserCreateHook struct {
-	Enabled          bool    `json:"enabled"`
-	URL              *string `json:"url"`
-	SigningSecretSet bool    `json:"signing_secret_set"`
-	TimeoutMs        int64   `json:"timeout_ms"`
-	FailClosed       bool    `json:"fail_closed"`
-}
-
-const beforeUserCreateHookPath = "/v1/instance/hooks/before_user_create"
-
-// GetBeforeUserCreateHook reads the hook. GET /v1/instance/hooks/before_user_create.
-func (c *Client) GetBeforeUserCreateHook(ctx context.Context) (*BeforeUserCreateHook, error) {
-	var out BeforeUserCreateHook
-	if err := c.do(ctx, http.MethodGet, beforeUserCreateHookPath, nil, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
-}
-
-// PatchBeforeUserCreateHook changes the given fields (a nil value clears url or
-// signing_secret). PATCH /v1/instance/hooks/before_user_create.
-func (c *Client) PatchBeforeUserCreateHook(ctx context.Context, fields map[string]interface{}) (*BeforeUserCreateHook, error) {
-	var out BeforeUserCreateHook
-	if err := c.do(ctx, http.MethodPatch, beforeUserCreateHookPath, fields, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
-}
