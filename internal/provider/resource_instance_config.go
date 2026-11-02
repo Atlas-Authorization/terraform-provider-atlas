@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/atlas/terraform-provider-atlas/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -38,6 +39,8 @@ type instanceConfigModel struct {
 	PublishableKey     types.String `tfsdk:"publishable_key"`
 	FrontendAPIHost    types.String `tfsdk:"frontend_api_host"`
 	CreatedAt          types.Int64  `tfsdk:"created_at"`
+
+	AccountPortalPanels types.Map `tfsdk:"account_portal_panels"`
 }
 
 // nativeAppsModel is the typed `native_apps` block. It is folded into the
@@ -155,6 +158,15 @@ func (r *instanceConfigResource) Schema(_ context.Context, _ resource.SchemaRequ
 				MarkdownDescription: "Instance creation time (epoch ms).",
 				Computed:            true,
 			},
+			"account_portal_panels": schema.MapAttribute{
+				MarkdownDescription: "Panels of the hosted account page (`/hosted/user`) to show (`true`) or hide " +
+					"(`false`): `profile`, `email_addresses`, `password`, `passkeys`, `mfa`, `sessions`, `linked_accounts`, " +
+					"`connected_apps`, `shared_resources`, `ciba`, `referrals`, `delete_account`. A panel left out is " +
+					"shown; a panel whose feature is off is never drawn. Written to the instance branding " +
+					"(`accountPortal.panels`); a panel removed from the map is reset.",
+				Optional:    true,
+				ElementType: types.BoolType,
+			},
 		},
 	}
 }
@@ -165,7 +177,7 @@ func (r *instanceConfigResource) Create(ctx context.Context, req resource.Create
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	r.write(ctx, &plan, &resp.Diagnostics)
+	r.write(ctx, &plan, types.MapNull(types.BoolType), &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -194,16 +206,26 @@ func (r *instanceConfigResource) Read(ctx context.Context, req resource.ReadRequ
 	if state.AuthConfig.IsNull() {
 		state.AuthConfig = jsonRawToValue(fetched.AuthConfig)
 	}
+	// account_portal_panels lives in the branding; refresh it only when managed.
+	if !state.AccountPortalPanels.IsNull() {
+		branding, err := r.client.GetBranding(ctx)
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to read instance branding", err.Error())
+			return
+		}
+		state.AccountPortalPanels = accountPortalPanelsFromAPI(ctx, branding, &resp.Diagnostics)
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
 func (r *instanceConfigResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan instanceConfigModel
+	var plan, state instanceConfigModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	r.write(ctx, &plan, &resp.Diagnostics)
+	r.write(ctx, &plan, state.AccountPortalPanels, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -222,8 +244,9 @@ func (r *instanceConfigResource) ImportState(ctx context.Context, req resource.I
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-// write sends the plan as a PATCH, re-reads the full projection, and maps it back.
-func (r *instanceConfigResource) write(ctx context.Context, plan *instanceConfigModel, diags *diag.Diagnostics) {
+// write sends the plan as a PATCH, re-reads the full projection, and maps it
+// back. priorPanels is the account_portal_panels state (null on create).
+func (r *instanceConfigResource) write(ctx context.Context, plan *instanceConfigModel, priorPanels types.Map, diags *diag.Diagnostics) {
 	body := client.InstanceUpdate{}
 	if !plan.AllowedOrigins.IsNull() && !plan.AllowedOrigins.IsUnknown() {
 		origins := setToStringSlice(ctx, plan.AllowedOrigins, diags)
@@ -266,6 +289,15 @@ func (r *instanceConfigResource) write(ctx context.Context, plan *instanceConfig
 		return
 	}
 	r.mapToState(ctx, fetched, plan, diags)
+	if panels := accountPortalPanelsPatch(ctx, plan.AccountPortalPanels, priorPanels, diags); panels != nil && !diags.HasError() {
+		if err := r.client.PatchBranding(ctx, map[string]interface{}{"accountPortal": map[string]interface{}{"panels": panels}}); err != nil {
+			diags.AddError("Unable to update the account portal panels", err.Error())
+			return
+		}
+	}
+	// A method that needs email is accepted without an email provider (the
+	// provider may be created later in the same apply); say so, never fail.
+	addInactiveMethodsWarning(fetched.InactiveMethods, diags)
 	// `auth_config` in state must equal what the user WROTE (the partial patch,
 	// round-tripped verbatim), NOT the server-merged object mapToState leaves
 	// alone — this keeps plan == apply and avoids a phantom diff. Only when the
@@ -399,4 +431,65 @@ func (r *instanceConfigResource) mapToState(ctx context.Context, in *client.Inst
 	m.PublishableKey = types.StringValue(in.PublishableKey)
 	m.FrontendAPIHost = types.StringValue(in.FrontendAPIHost)
 	m.CreatedAt = types.Int64Value(in.CreatedAt)
+}
+
+// accountPortalPanelsPatch is the accountPortal.panels merge-patch that turns
+// prior into planned: every planned panel, and null for a panel no longer
+// listed. nil when there is nothing to send.
+func accountPortalPanelsPatch(ctx context.Context, planned, prior types.Map, diags *diag.Diagnostics) map[string]interface{} {
+	if planned.IsUnknown() {
+		return nil
+	}
+	out := map[string]interface{}{}
+	if !prior.IsNull() && !prior.IsUnknown() {
+		for k := range prior.Elements() {
+			out[k] = nil
+		}
+	}
+	if !planned.IsNull() {
+		var panels map[string]bool
+		diags.Append(planned.ElementsAs(ctx, &panels, false)...)
+		for k, v := range panels {
+			out[k] = v
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// accountPortalPanelsFromAPI maps the stored panel toggles onto the attribute
+// (a null toggle means "shown by default" and is left out).
+func accountPortalPanelsFromAPI(ctx context.Context, b *client.Branding, diags *diag.Diagnostics) types.Map {
+	panels := map[string]bool{}
+	if b.AccountPortal != nil {
+		for k, v := range b.AccountPortal.Panels {
+			if v != nil {
+				panels[k] = *v
+			}
+		}
+	}
+	out, d := types.MapValueFrom(ctx, types.BoolType, panels)
+	diags.Append(d...)
+	return out
+}
+
+// addInactiveMethodsWarning turns the server's inactive_methods into a plain
+// warning. It never fails the apply and never touches state, so a resource whose
+// config already planned clean keeps planning with no diff.
+func addInactiveMethodsWarning(inactive []client.InactiveMethod, diags *diag.Diagnostics) {
+	if len(inactive) == 0 {
+		return
+	}
+	names := make([]string, 0, len(inactive))
+	for _, m := range inactive {
+		names = append(names, m.Method)
+	}
+	diags.AddWarning(
+		"Sign-in methods not offered yet",
+		"These sign-in methods are switched on but need an email provider, so users are not offered them until one is configured: "+
+			strings.Join(names, ", ")+". Add an email provider (atlas_messaging_provider), or turn the methods off. "+
+			"If the provider is created later in this apply, they become active on their own.",
+	)
 }

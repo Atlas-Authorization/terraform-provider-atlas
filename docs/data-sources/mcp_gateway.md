@@ -1,6 +1,8 @@
 # atlas_mcp_gateway (data source)
 
-Reads an existing mcp gateway by id. Every attribute except the lookup keys is computed; write-only secrets are not exposed.
+An MCP tool gateway, looked up by id.
+
+Every attribute except `id` is computed. Scope: `machines:read`.
 
 ## Example Usage
 
@@ -9,3 +11,13 @@ data "atlas_mcp_gateway" "example" {
   id = "<id>"
 }
 ```
+
+## Schema
+
+### Required
+
+- `id` (String) The id to look up.
+
+### Read-Only
+
+

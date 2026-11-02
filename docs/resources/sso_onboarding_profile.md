@@ -1,6 +1,6 @@
 # atlas_sso_onboarding_profile
 
-Create a self-service SSO onboarding profile: allowed connection types and an optional bound organization.
+Create a self-service SSO onboarding profile: allowed connection types, an optional bound organization, and an optional `return_url` (where "Finish" on the hosted setup page sends the admin; https on one of your allowed origins).
 
 Scopes: `sso_connections:read` to read, `sso_connections:write` to write.
 
@@ -24,6 +24,7 @@ resource "atlas_sso_onboarding_profile" "example" {
 - `company_name` (String) The `company_name` field.
 - `allow_scim` (Boolean) The `allow_scim` field.
 - `intents` (List of String) The `intents` field. One of: `sso`, `directory_sync`, `domain_verification`, `log_stream`, `audit_log`, `certificate_renewal`, `api_keys`, `webhooks`.
+- `return_url` (String) The `return_url` field.
 
 ### Read-Only
 

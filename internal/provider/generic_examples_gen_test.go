@@ -4,10 +4,6 @@ package provider
 
 // genExampleConfigs maps a generated resource type to a minimal HCL example.
 var genExampleConfigs = map[string]string{
-	"mcp_gateway": `resource "atlas_mcp_gateway" "example" {
-  name = "tf-mcp-gateway"
-}
-`,
 	"mcp_gateway_upstream": `resource "atlas_mcp_gateway_upstream" "example" {
   mcp_gateway_id = "tf-mcp-gateway-upstream"
 }
@@ -90,27 +86,8 @@ var genExampleConfigs = map[string]string{
   entitlement = "tf-iga-eligibility"
 }
 `,
-	"iga_entitlement": `resource "atlas_iga_entitlement" "example" {
-  key = "tf-iga-entitlement"
-  name = "tf-iga-entitlement"
-  kind = "role"
-  target = jsonencode({})
-}
-`,
 	"iga_campaign": `resource "atlas_iga_campaign" "example" {
   name = "tf-iga-campaign"
-}
-`,
-	"iga_sod_rule": `resource "atlas_iga_sod_rule" "example" {
-  name = "tf-iga-sod-rule"
-  entitlement_a = "tf-iga-sod-rule"
-  entitlement_b = "tf-iga-sod-rule"
-}
-`,
-	"iga_birthright_rule": `resource "atlas_iga_birthright_rule" "example" {
-  name = "tf-iga-birthright-rule"
-  match = jsonencode({})
-  entitlement_ids = ["example"]
 }
 `,
 	"administrative_unit": `resource "atlas_administrative_unit" "example" {
@@ -185,12 +162,6 @@ var genExampleConfigs = map[string]string{
 `,
 	"oauth_client_profile": `resource "atlas_oauth_client_profile" "example" {
   name = "tf-oauth-client-profile"
-}
-`,
-	"vc_credential_type": `resource "atlas_vc_credential_type" "example" {
-  vct = "tf-vc-credential-type"
-  name = "tf-vc-credential-type"
-  claims = jsonencode({})
 }
 `,
 	"group": `resource "atlas_group" "example" {

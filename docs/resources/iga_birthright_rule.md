@@ -1,43 +1,38 @@
 # atlas_iga_birthright_rule
 
-Create a birthright rule: everyone matching `match` (a group, organization and role, app role or verified email domain; all conditions must hold) holds the listed entitlements. When someone stops matching, the grants the rule gave are revoked unless `revoke_on_unmatch` is false.
+A joiner/mover rule: everyone matching `match` holds the listed entitlements,
+and loses them when they stop matching. Evaluated when users, memberships and
+groups change, and re-checked periodically so directory-sync changes are caught.
 
-Scopes: `iga:read` to read, `iga:write` to write.
-
-Backend API: `POST /v1/iga/birthright_rules` (create); `GET /v1/iga/birthright_rules` (read: the list is scanned for the id); `PATCH /v1/iga/birthright_rules/{id}` (update); `DELETE /v1/iga/birthright_rules/{id}` (destroy).
+Backend API (BAPI): `POST /v1/iga/birthright_rules`, `PATCH /v1/iga/birthright_rules/:id`,
+`DELETE /v1/iga/birthright_rules/:id` (and the list for reads). The API key needs
+the `iga:read` and `iga:write` scopes.
 
 ## Example Usage
 
 ```hcl
-resource "atlas_iga_birthright_rule" "example" {
-  name = "tf-iga-birthright-rule"
-  match = jsonencode({})
-  entitlement_ids = ["example"]
+resource "atlas_iga_birthright_rule" "engineering" {
+  name              = "Engineering gets the wiki"
+  match             = jsonencode({ group = "engineering" })
+  entitlement_ids   = [atlas_iga_entitlement.wiki.id]
+  revoke_on_unmatch = true
 }
 ```
 
-## Schema
+## Argument Reference
 
-### Required
+- `name` (Required) Display name.
+- `match` (Required) Conditions as JSON; every one given must hold: `group` (slug), `organization_id` with optional `org_role`, `app_role`, `email_domain` (verified addresses only).
+- `entitlement_ids` (Required) Ids of the entitlements the rule gives.
+- `revoke_on_unmatch` (Optional) Take the access back when a person stops matching. Defaults to `true`.
+- `enabled` (Optional) Defaults to `true`.
 
-- `name` (String) The `name` field.
-- `match` (String, JSON) The `match` field. A JSON document (use `jsonencode`).
-- `entitlement_ids` (List of String) The `entitlement_ids` field.
+## Attribute Reference
 
-### Optional
-
-- `revoke_on_unmatch` (Boolean) The `revoke_on_unmatch` field.
-- `enabled` (Boolean) The `enabled` field.
-
-### Read-Only
-
-- `id` (String) Atlas object id.
-- `created_at` (Number) Created (epoch ms).
+- `id` The rule id.
 
 ## Import
 
-The import id is `<id>`.
-
-```sh
-terraform import atlas_iga_birthright_rule.example <id>
+```shell
+terraform import atlas_iga_birthright_rule.engineering igb_…
 ```

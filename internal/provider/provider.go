@@ -128,6 +128,11 @@ func handWrittenResources() []func() resource.Resource {
 		NewSsoConnectionResource,
 		NewResourceServerResource,
 		NewJwtTemplateResource,
+		NewVcCredentialTypeResource,
+		NewMcpGatewayResource,
+		NewIgaEntitlementResource,
+		NewIgaSodRuleResource,
+		NewIgaBirthrightRuleResource,
 		NewWebhookEndpointResource,
 		NewRoleResource,
 		NewOrganizationResource,
@@ -152,6 +157,7 @@ func handWrittenResources() []func() resource.Resource {
 		NewPolicyResource,
 		NewPolicySourceResource,
 		NewPolicySettingsResource,
+		NewBeforeUserCreateHookResource,
 		NewSecretKeyResource,
 		NewPartnerLinkResource,
 		NewOutboundPartnerLinkResource,
@@ -166,6 +172,7 @@ func handWrittenResources() []func() resource.Resource {
 		NewPrivacyOrchestratorResource,
 		NewPartnerPlatformResource,
 		NewReferralSettingsResource,
+		NewJWTConnectionResource,
 	}
 }
 

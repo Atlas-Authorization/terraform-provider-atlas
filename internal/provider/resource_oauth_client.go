@@ -43,6 +43,10 @@ type oauthClientModel struct {
 	LogoURI                 types.String `tfsdk:"logo_uri"`
 	FirstParty              types.Bool   `tfsdk:"first_party"`
 	SkipLogoutConfirmation  types.Bool   `tfsdk:"skip_logout_confirmation"`
+	RefreshTouchesSession   types.Bool   `tfsdk:"refresh_touches_session"`
+	RequireVerifiedEmail    types.Bool   `tfsdk:"require_verified_email"`
+	LoginURL                types.String `tfsdk:"login_url"`
+	ConsentURL              types.String `tfsdk:"consent_url"`
 	OIDCMetadata            types.String `tfsdk:"oidc_metadata"`
 	SecretPrefix            types.String `tfsdk:"secret_prefix"`
 	IsPublic                types.Bool   `tfsdk:"is_public"`
@@ -118,6 +122,33 @@ func (r *oauthClientResource) Schema(_ context.Context, _ resource.SchemaRequest
 				Computed: true,
 				Default:  booldefault.StaticBool(false),
 			},
+			"refresh_touches_session": schema.BoolAttribute{
+				MarkdownDescription: "When true, the app's sign-in follows its Atlas session: each refresh_token grant keeps the " +
+					"Atlas session it came from alive, and once that session has ended the refresh fails (`invalid_grant`). " +
+					"**First-party clients only** (`first_party = true`); Atlas refuses it on a third-party client. Defaults to false.",
+				Optional: true,
+				Computed: true,
+				Default:  booldefault.StaticBool(false),
+			},
+			"require_verified_email": schema.BoolAttribute{
+				MarkdownDescription: "When true, Atlas issues no authorization code for a user whose primary email is not verified: " +
+					"the user is sent through email verification once, otherwise the client gets `access_denied` with the reason. " +
+					"Defaults to false.",
+				Optional: true,
+				Computed: true,
+				Default:  booldefault.StaticBool(false),
+			},
+			"login_url": schema.StringAttribute{
+				MarkdownDescription: "https URL of your own sign-in page. When set, `/oauth2/authorize` sends people there with a " +
+					"signed `login_challenge` that your backend accepts or rejects through the Backend API, instead of Atlas's hosted " +
+					"sign-in. Overrides the instance-wide `oauthProvider.loginUrl`.",
+				Optional: true,
+			},
+			"consent_url": schema.StringAttribute{
+				MarkdownDescription: "https URL of your own consent page (`consent_challenge`). Overrides the instance-wide " +
+					"`oauthProvider.consentUrl`.",
+				Optional: true,
+			},
 			"oidc_metadata": schema.StringAttribute{
 				MarkdownDescription: "OpenID metadata for the client as a JSON object (use `jsonencode`). Keys: `jwks`, `jwks_uri`, " +
 					"`tls_client_auth_subject_dn`, `id_token_signed_response_alg`, `userinfo_signed_response_alg`, " +
@@ -185,6 +216,10 @@ func (r *oauthClientResource) Create(ctx context.Context, req resource.CreateReq
 		body.FirstParty = client.Ptr(plan.FirstParty.ValueBool())
 	}
 	body.SkipLogoutConfirmation = optionalBool(plan.SkipLogoutConfirmation)
+	body.RefreshTouchesSession = optionalBool(plan.RefreshTouchesSession)
+	body.RequireVerifiedEmail = optionalBool(plan.RequireVerifiedEmail)
+	body.LoginURL = optionalString(plan.LoginURL)
+	body.ConsentURL = optionalString(plan.ConsentURL)
 	body.Extra = oidcMetadataBody(plan.OIDCMetadata, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
@@ -250,6 +285,11 @@ func (r *oauthClientResource) Update(ctx context.Context, req resource.UpdateReq
 		body.FirstParty = client.Ptr(plan.FirstParty.ValueBool())
 	}
 	body.SkipLogoutConfirmation = optionalBool(plan.SkipLogoutConfirmation)
+	body.RefreshTouchesSession = optionalBool(plan.RefreshTouchesSession)
+	body.RequireVerifiedEmail = optionalBool(plan.RequireVerifiedEmail)
+	// A removed URL clears it (the API reads "" as null).
+	body.LoginURL = clearableString(plan.LoginURL)
+	body.ConsentURL = clearableString(plan.ConsentURL)
 	body.Extra = oidcMetadataBody(plan.OIDCMetadata, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
@@ -281,32 +321,37 @@ func (r *oauthClientResource) Delete(ctx context.Context, req resource.DeleteReq
 	}
 }
 
-// ValidateConfig catches skip_logout_confirmation on a client configured as
+// firstPartyOnlyAttributes are the client settings Atlas refuses (422) on a
+// third-party client.
+var firstPartyOnlyAttributes = []string{"skip_logout_confirmation", "refresh_touches_session"}
+
+// ValidateConfig catches a first-party-only setting on a client configured as
 // third-party (first_party = false) at plan time; Atlas would answer 422.
 func (r *oauthClientResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
-	var skip, firstParty types.Bool
-	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("skip_logout_confirmation"), &skip)...)
+	var firstParty types.Bool
 	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("first_party"), &firstParty)...)
-	if resp.Diagnostics.HasError() {
+	if resp.Diagnostics.HasError() || firstParty.IsUnknown() || firstParty.IsNull() || firstParty.ValueBool() {
 		return
 	}
-	if skip.IsUnknown() || !skip.ValueBool() || firstParty.IsUnknown() || firstParty.IsNull() || firstParty.ValueBool() {
-		return
+	for _, attr := range firstPartyOnlyAttributes {
+		var on types.Bool
+		resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root(attr), &on)...)
+		if !on.IsUnknown() && on.ValueBool() {
+			addFirstPartyOnlyError(&resp.Diagnostics, attr)
+		}
 	}
-	addSkipLogoutConfirmationError(&resp.Diagnostics)
 }
 
 // ModifyPlan covers first_party left unset: a new client defaults to
 // third-party, and an existing one keeps its current (state) value. Either
-// way, a third-party client cannot skip the logout confirmation.
+// way, a third-party client cannot turn on a first-party-only setting.
 func (r *oauthClientResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	if req.Plan.Raw.IsNull() {
 		return // destroy
 	}
-	var skip, configFirstParty types.Bool
-	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("skip_logout_confirmation"), &skip)...)
+	var configFirstParty types.Bool
 	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("first_party"), &configFirstParty)...)
-	if resp.Diagnostics.HasError() || skip.IsUnknown() || !skip.ValueBool() || !configFirstParty.IsNull() {
+	if resp.Diagnostics.HasError() || !configFirstParty.IsNull() {
 		return
 	}
 	firstParty := false
@@ -315,16 +360,23 @@ func (r *oauthClientResource) ModifyPlan(ctx context.Context, req resource.Modif
 		resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("first_party"), &prior)...)
 		firstParty = prior.ValueBool()
 	}
-	if !firstParty {
-		addSkipLogoutConfirmationError(&resp.Diagnostics)
+	if firstParty {
+		return
+	}
+	for _, attr := range firstPartyOnlyAttributes {
+		var on types.Bool
+		resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root(attr), &on)...)
+		if !on.IsUnknown() && on.ValueBool() {
+			addFirstPartyOnlyError(&resp.Diagnostics, attr)
+		}
 	}
 }
 
-func addSkipLogoutConfirmationError(diags *diag.Diagnostics) {
-	diags.AddAttributeError(path.Root("skip_logout_confirmation"),
-		"skip_logout_confirmation needs a first-party client",
-		"Only first-party clients may skip the logout confirmation: Atlas refuses it (422) on a third-party "+
-			"client. Set first_party = true on this client, or remove skip_logout_confirmation.")
+func addFirstPartyOnlyError(diags *diag.Diagnostics, attr string) {
+	diags.AddAttributeError(path.Root(attr),
+		attr+" needs a first-party client",
+		"Only first-party clients may set "+attr+": Atlas refuses it (422) on a third-party "+
+			"client. Set first_party = true on this client, or remove "+attr+".")
 }
 
 func (r *oauthClientResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -344,6 +396,10 @@ func (r *oauthClientResource) mapToState(ctx context.Context, c *client.OAuthCli
 	m.LogoURI = stringPtrToValue(c.LogoURL)
 	m.FirstParty = types.BoolValue(c.FirstParty)
 	m.SkipLogoutConfirmation = types.BoolValue(c.SkipLogoutConfirmation)
+	m.RefreshTouchesSession = types.BoolValue(c.RefreshTouchesSession)
+	m.RequireVerifiedEmail = types.BoolValue(c.RequireVerifiedEmail)
+	m.LoginURL = stringPtrToValue(c.LoginURL)
+	m.ConsentURL = stringPtrToValue(c.ConsentURL)
 	m.SecretPrefix = stringPtrToValue(c.SecretPrefix)
 	m.OIDCMetadata = oidcMetadataFromAPI(m.OIDCMetadata, c.Raw)
 	m.IsPublic = types.BoolValue(c.IsPublic)
@@ -358,6 +414,15 @@ func (r *oauthClientResource) mapToState(ctx context.Context, c *client.OAuthCli
 			m.ClientSecret = types.StringValue("")
 		}
 	}
+}
+
+// clearableString is the update-time form of an optional string: null becomes
+// "" (which the API reads as "clear"), anything else is sent as is.
+func clearableString(v types.String) *string {
+	if v.IsNull() {
+		return client.Ptr("")
+	}
+	return optionalString(v)
 }
 
 // oidcMetadataBody parses the oidc_metadata JSON object into top-level request keys.

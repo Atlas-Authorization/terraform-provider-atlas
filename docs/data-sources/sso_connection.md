@@ -40,6 +40,8 @@ data "atlas_sso_connection" "example" {
 - `saml_idp_slo_soap_url` (String) The `saml_idp_slo_soap_url` field.
 - `saml_require_encrypted_assertions` (Boolean) The `saml_require_encrypted_assertions` field.
 - `require_consent_screen` (Boolean) The `require_consent_screen` field.
+- `saml_acs_path` (String) The custom ACS path, or null for the standard one.
+- `github_access` (String, JSON) The GitHub organization / team allowlist, or null for an ordinary OIDC connection. A JSON document (use `jsonencode`).
 - `has_saml_encryption_key` (Boolean) Whether an SP encryption key pair is set up (the private key is never returned).
 - `has_previous_saml_encryption_key` (Boolean) A rotation is in progress: the previous key is still advertised and accepted.
 - `saml_encryption_rotated_at` (Number) When the current encryption key was installed (epoch ms).

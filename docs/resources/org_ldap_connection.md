@@ -27,6 +27,7 @@ resource "atlas_org_ldap_connection" "example" {
 - `start_tls` (Boolean) The `start_tls` field.
 - `require_consent_screen` (Boolean) Show the person a confirmation ("sign in as ...") before an LDAP sign-in completes. The sign-in response carries consent_required and a consent_token instead of a ticket.
 - `attributes` (String, JSON) Directory attribute → Atlas field mapping. `email` is required. A JSON document (use `jsonencode`).
+- `group_role_mappings` (String, JSON) Directory group → organization role. A newly seated member gets the role of the first mapping whose group DN is in their groups attribute (compared case-insensitively), else default_role_id, else org:member. On each later sign-in a member this connection seated moves to the role their groups map to now; groups that map to nothing leave the role unchanged, and a role set through the API or dashboard, or the organization's creator, is never changed. Roles must exist for the organization. A JSON document (use `jsonencode`).
 - `bind_password` (String, Sensitive) Service-account password. Write-only; never returned. Write-only: sent to Atlas, never returned, and not detected as drift.
 - `default_role_id` (String) The `default_role_id` field.
 

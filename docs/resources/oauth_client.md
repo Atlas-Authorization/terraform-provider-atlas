@@ -24,6 +24,8 @@ resource "atlas_oauth_client" "web" {
   redirect_uris            = ["https://app.example.com/callback"]
   first_party              = true
   skip_logout_confirmation = true
+  # Sign-in follows the Atlas session: refreshes keep it alive and fail once it ends.
+  refresh_touches_session = true
 }
 
 output "dashboard_secret" {
@@ -47,6 +49,10 @@ output "dashboard_secret" {
 - `logo_uri` (String) — Optional logo URL shown on the consent screen.
 - `first_party` (Boolean) — When true the client is first-party and may skip the consent screen. Defaults to `false`.
 - `skip_logout_confirmation` (Boolean) — When true, an RP-initiated logout (`/oauth2/logout`) from this client with an exactly registered `post_logout_redirect_uri` ends the session without the "Sign out?" page and redirects straight back (back- and front-channel logout still run). **First-party clients only**: set `first_party` to `true`. Atlas refuses it on a third-party client (`422`), so the provider fails the plan instead when it can tell the client is third-party. Defaults to `false`.
+- `refresh_touches_session` (Boolean) — When true, the app's sign-in follows its Atlas session: each `refresh_token` grant keeps the Atlas session it came from alive, and once that session has ended the refresh fails (`invalid_grant`). **First-party clients only**: set `first_party` to `true`; the provider fails the plan when it can tell the client is third-party. Defaults to `false`.
+- `require_verified_email` (Boolean) — When true, Atlas issues no authorization code for a user whose primary email is not verified: the user is sent through email verification once, otherwise the client gets `access_denied` with the reason. Any client (first- or third-party). Defaults to `false`.
+- `login_url` (String) — https URL of your own sign-in page. When set, `/oauth2/authorize` sends people there with a signed `login_challenge` that your backend accepts or rejects through the Backend API, instead of Atlas's hosted sign-in. Overrides the instance-wide `oauthProvider.loginUrl`.
+- `consent_url` (String) — https URL of your own consent page (`consent_challenge`). Overrides the instance-wide `oauthProvider.consentUrl`.
 - `oidc_metadata` (String, JSON) — OpenID metadata for the client as a JSON object (use `jsonencode`): `jwks`, `jwks_uri`, `tls_client_auth_subject_dn`, the `*_signed_response_alg` and `*_encrypted_response_alg` / `_enc` keys for `id_token`, `userinfo`, `authorization` and `introspection`, `request_object_signing_alg`, `request_object_encryption_alg` / `_enc`, `require_signed_request_object`, `request_uris`, `response_types`, `backchannel_token_delivery_mode` (`poll`, `ping`, `push`), `backchannel_client_notification_endpoint`, `backchannel_user_code_parameter`, `backchannel_authentication_request_signing_alg`, `org_selection` (`none`, `ask`, `require`), `min_app_version`, `native_sso_group`, `wimse_workload_id`, `tls_client_auth_san_*`, `dpop_bound_access_tokens` and `txn_token_unsigned_subject`. Set a key to `null` to clear it. Only the keys you list are managed, and the attribute is not read back after an import.
 
 ### Read-Only
@@ -67,3 +73,7 @@ terraform import atlas_oauth_client.dashboard oac_123
 
 The one-time `client_secret` cannot be recovered on import (the API never returns
 it); rotate the client out of band if you need a fresh secret in state.
+
+## Redirect origins
+
+The API's one-shot `add_redirect_origins` flag (append the redirect URIs' origins to the instance's allowed origins) is not an attribute of this resource: it would change another resource's setting behind Terraform's back. List those origins in `allowed_origins` on `atlas_instance_config` instead, so the plan shows them and a later apply does not remove them.

@@ -1,6 +1,7 @@
-# Create a rule.
-resource "atlas_iga_sod_rule" "example" {
-  name = "tf-iga-sod-rule"
-  entitlement_a = "tf-iga-sod-rule"
-  entitlement_b = "tf-iga-sod-rule"
+resource "atlas_iga_sod_rule" "approve_vs_pay" {
+  name          = "Approving and paying invoices"
+  entitlement_a = atlas_iga_entitlement.invoice_approver.id
+  entitlement_b = atlas_iga_entitlement.invoice_payer.id
+  mode          = "require_approval"
+  approver      = jsonencode({ type = "group", ids = ["risk"], mode = "any" })
 }

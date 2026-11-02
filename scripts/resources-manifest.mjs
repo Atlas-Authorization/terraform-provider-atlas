@@ -13,9 +13,8 @@
 export const manifest = [
   // ── Re-audit track resources ────────────────────────────────────────────────
   // Track 5: agents, MCP gateways, actions, triggers
-  { t: 'mcp_gateway', item: '/v1/mcp_gateways/{id}', ds: true, patchAll: true, echo: true, secrets: ['upstream_authorization'], extra: [
-    { api: 'has_upstream_authorization', kind: 'bool' }, { api: 'resource' }, { api: 'resource_metadata_url' }, { api: 'url' }, { api: 'created_at', kind: 'int' },
-  ] },
+  // mcp_gateway: hand-written (internal/provider/resource_*.go); generated as a data source only.
+  { t: 'mcp_gateway', kind: 'dataonly', item: '/v1/mcp_gateways/{id}', desc: 'An MCP tool gateway, looked up by id.' },
   { t: 'mcp_gateway_upstream', item: '/v1/mcp_gateways/{id}/upstreams/{upstreamId}', params: { id: 'mcp_gateway_id' } },
   { t: 'mcp_gateway_pack', item: '/v1/mcp_gateways/{id}/packs/{packId}', params: { id: 'mcp_gateway_id' } },
   { t: 'mcp_gateway_budget', item: '/v1/mcp_gateways/{id}/budgets/{budgetId}', params: { id: 'mcp_gateway_id' } },
@@ -36,10 +35,11 @@ export const manifest = [
   { t: 'chat_integration', item: '/v1/chat_integrations/{id}' },
   { t: 'iga_bundle', item: '/v1/iga/bundles/{id}' },
   { t: 'iga_eligibility', item: '/v1/iga/eligibilities/{id}', update: '' },
-  { t: 'iga_entitlement', item: '/v1/iga/entitlements/{id}', ds: true },
+  // iga_entitlement: hand-written (internal/provider/resource_*.go); generated as a data source only.
+  { t: 'iga_entitlement', kind: 'dataonly', item: '/v1/iga/entitlements/{id}', desc: 'An IGA entitlement, looked up by id.' },
   { t: 'iga_campaign', item: '/v1/iga/campaigns/{id}', update: '' },
-  { t: 'iga_sod_rule', item: '/v1/iga/sod_rules/{id}' },
-  { t: 'iga_birthright_rule', item: '/v1/iga/birthright_rules/{id}' },
+  // iga_sod_rule: hand-written (internal/provider/resource_*.go).
+  // iga_birthright_rule: hand-written (internal/provider/resource_*.go).
   { t: 'administrative_unit', item: '/v1/administrative_units/{id}' },
   { t: 'organization_application', kind: 'keyed', item: '/v1/organizations/{id}/applications/{clientId}', params: { id: 'organization_id', clientId: 'client_id' }, list: '/v1/organizations/{id}/applications', match: 'client_id' },
   { t: 'oauth_client_organization_access', kind: 'keyed', item: '/v1/oauth_clients/{id}/organization_access', params: { id: 'client_id' }, noRead: true, noDelete: true },
@@ -65,7 +65,7 @@ export const manifest = [
   { t: 'wsfed_connection', item: '/v1/wsfed_connections/{id}' },
   // Track 2: OIDC / FAPI / OAuth
   { t: 'oauth_client_profile', kind: 'keyed', item: '/v1/oauth_client_profiles/{name}', params: { name: 'name' }, skip: ['builtin'], list: '/v1/oauth_client_profiles', match: 'name' },
-  { t: 'vc_credential_type', item: '/v1/vc/credential_types/{id}', update: '' },
+  // vc_credential_type: hand-written (internal/provider/resource_*.go).
 
   // ── D-24: Backend API collections without a resource ────────────────────────
   { t: 'group', item: '/v1/groups/{id}', ds: true },

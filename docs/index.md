@@ -70,6 +70,7 @@ environment.
 | [`atlas_sso_connection`](resources/sso_connection.md) | Enterprise SSO connection (OIDC / SAML / Discourse). |
 | [`atlas_resource_server`](resources/resource_server.md) | Machine-token API (audience + scopes). |
 | [`atlas_jwt_template`](resources/jwt_template.md) | Named custom-claims map injected into tokens. |
+| [`atlas_jwt_connection`](resources/jwt_connection.md) | Trusted-JWT sign-in connection (your own signed JWT signs a person in). |
 | [`atlas_webhook_endpoint`](resources/webhook_endpoint.md) | Signed-event delivery endpoint. |
 | [`atlas_role`](resources/role.md) | Custom organization role and its permissions. |
 | [`atlas_organization`](resources/organization.md) | Organization (tenant) profile. |
@@ -93,6 +94,12 @@ environment.
 | [`atlas_policy`](resources/policy.md) | A policy users accept (terms, privacy): key, title, display, applies_to, reaccept, grace_days. |
 | [`atlas_policy_source`](resources/policy_source.md) | External policy source: endpoint, sync mode, write-only signing secret. |
 | [`atlas_policy_settings`](resources/policy_settings.md) | Policy settings: the `pol` session claim. |
+| [`atlas_before_user_create_hook`](resources/before_user_create_hook.md) | The `before_user_create` hook: URL, signing secret, timeout and `fail_closed`. |
+| [`atlas_mcp_gateway`](resources/mcp_gateway.md) | An MCP tool gateway in front of your MCP server, with per-tool policy. |
+| [`atlas_iga_entitlement`](resources/iga_entitlement.md) | A requestable entitlement in the IGA catalog. |
+| [`atlas_iga_sod_rule`](resources/iga_sod_rule.md) | A separation-of-duties rule. |
+| [`atlas_iga_birthright_rule`](resources/iga_birthright_rule.md) | A birthright (joiner/mover) access rule. |
+| [`atlas_vc_credential_type`](resources/vc_credential_type.md) | A verifiable credential type (SD-JWT VC or ISO 18013-5 mdoc). |
 
 ## Data Sources
 
@@ -109,7 +116,6 @@ environment.
 
 | Resource | Description |
 |----------|-------------|
-| [`atlas_mcp_gateway`](resources/mcp_gateway.md) | Create an MCP gateway: one URL (`url` in the response) that fronts your MCP server. |
 | [`atlas_mcp_gateway_upstream`](resources/mcp_gateway_upstream.md) | Add an upstream. |
 | [`atlas_mcp_gateway_pack`](resources/mcp_gateway_pack.md) | Create a tool pack. |
 | [`atlas_mcp_gateway_budget`](resources/mcp_gateway_budget.md) | Add a budget. |
@@ -128,10 +134,7 @@ environment.
 | [`atlas_chat_integration`](resources/chat_integration.md) | Connect a Slack workspace or a Teams bot using your own app. |
 | [`atlas_iga_bundle`](resources/iga_bundle.md) | Create a bundle: several catalog entitlements, request form fields, and a policy (who may ask, guest expiry). |
 | [`atlas_iga_eligibility`](resources/iga_eligibility.md) | Make a person eligible for an entitlement: they hold nothing until they activate it. |
-| [`atlas_iga_entitlement`](resources/iga_entitlement.md) | Add an entitlement to the catalog: a role, organization membership, group, resource role, installed-app assignment or custom item, with an owner, a risk level and approval rules. |
 | [`atlas_iga_campaign`](resources/iga_campaign.md) | Create a draft campaign scoped to everything, specific entitlements, or the entitlements for an app, role, group or organization, with reviewers (the person's manager, the entitlement owner, or named users), a due date and reminder days. |
-| [`atlas_iga_sod_rule`](resources/iga_sod_rule.md) | Create a rule. |
-| [`atlas_iga_birthright_rule`](resources/iga_birthright_rule.md) | Create a birthright rule: everyone matching `match` (a group, organization and role, app role or verified email domain; all conditions must hold) holds the listed entitlements. |
 | [`atlas_administrative_unit`](resources/administrative_unit.md) | Create an administrative unit. |
 | [`atlas_organization_application`](resources/organization_application.md) | Give an organization access to an application (by client id or id), optionally limited to some organization roles. |
 | [`atlas_oauth_client_organization_access`](resources/oauth_client_organization_access.md) | Set who may use an application. |
@@ -148,7 +151,6 @@ environment.
 | [`atlas_cloud_access_target`](resources/cloud_access_target.md) | Add a cloud access target. |
 | [`atlas_wsfed_connection`](resources/wsfed_connection.md) | Add a WS-Federation connection. |
 | [`atlas_oauth_client_profile`](resources/oauth_client_profile.md) | Create or replace a custom client policy profile (rules: PKCE, PAR, sender constraint, signed request object, allowed auth methods and signing algorithms, https-only redirects, allowed claims). |
-| [`atlas_vc_credential_type`](resources/vc_credential_type.md) | Define a credential type: its vct, and how each claim is filled from a user’s attributes. |
 | [`atlas_group`](resources/group.md) | Create an instance group. |
 | [`atlas_group_rule`](resources/group_rule.md) | Create a rule: when a user matches condition, run the actions (add to a group, grant an app role, set a trait). |
 | [`atlas_machine`](resources/machine.md) | Create a named machine (M2M) identity; returns the machine secret (mk_) ONCE. |
@@ -174,7 +176,7 @@ environment.
 | [`atlas_directory_pull_source`](resources/directory_pull_source.md) | Create a pull source for an organization: provider (entra, google_workspace, bamboohr, hibob, personio, workday, successfactors, gusto, csv, rest_json), config, write-only credentials and settings (schedule, role mappings, disable on removal). |
 | [`atlas_relay_agent`](resources/relay_agent.md) | Register an outbound-only relay agent. |
 | [`atlas_scim_token`](resources/scim_token.md) | Mint a SCIM provisioning token for an organization. |
-| [`atlas_sso_onboarding_profile`](resources/sso_onboarding_profile.md) | Create a self-service SSO onboarding profile: allowed connection types and an optional bound organization. |
+| [`atlas_sso_onboarding_profile`](resources/sso_onboarding_profile.md) | Create a self-service SSO onboarding profile: allowed connection types, an optional bound organization, and an optional `return_url` (where "Finish" on the hosted setup page sends the admin; https on one of your allowed origins). |
 | [`atlas_proxy_app`](resources/proxy_app.md) | Create a proxy app: a hostname, optional upstream URL, ordered path/method rules requiring a role, permission or entitlement, public paths, and header/token injection. |
 | [`atlas_ssf_stream`](resources/ssf_stream.md) | Create a stream. |
 | [`atlas_ssf_receiver`](resources/ssf_receiver.md) | Register a transmitter. |

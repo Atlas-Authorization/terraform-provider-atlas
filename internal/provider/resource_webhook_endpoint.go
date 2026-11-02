@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"regexp"
 
 	"github.com/atlas/terraform-provider-atlas/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -57,7 +58,13 @@ type webhookEndpointModel struct {
 	LastSuccessAt       types.Int64  `tfsdk:"last_success_at"`
 	ConsecutiveFailures types.Int64  `tfsdk:"consecutive_failures"`
 	LastFailingSince    types.Int64  `tfsdk:"last_failing_since"`
+
+	SecretWO        types.String `tfsdk:"secret_wo"`
+	SecretWOVersion types.Int64  `tfsdk:"secret_wo_version"`
 }
+
+// webhookSecretPattern is the API's rule for a client-chosen signing secret.
+var webhookSecretPattern = regexp.MustCompile(`^(atlas_(live|test)_)?whsec_[A-Za-z0-9+/=_-]{32,256}$`)
 
 func (r *webhookEndpointResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_webhook_endpoint"
@@ -103,6 +110,20 @@ func (r *webhookEndpointResource) Schema(_ context.Context, _ resource.SchemaReq
 			"rotate_secret_trigger": schema.StringAttribute{
 				MarkdownDescription: "Any value; changing it rotates the signing secret in place (the new one lands in " +
 					"`secret`). Deliveries signed with the old secret stop verifying at once, so update your verifier.",
+				Optional: true,
+			},
+			"secret_wo": schema.StringAttribute{
+				MarkdownDescription: "A signing secret you choose (`whsec_` followed by 32-256 characters of `A-Za-z0-9+/=_-`), " +
+					"e.g. one your receiver already verifies with. **Write-only**: sent on create and whenever " +
+					"`secret_wo_version` changes (which rotates to it in place); never stored as given. Leave it out to let " +
+					"Atlas generate the secret. Needs Terraform 1.11 or later.",
+				Optional:  true,
+				Sensitive: true,
+				WriteOnly: true,
+			},
+			"secret_wo_version": schema.Int64Attribute{
+				MarkdownDescription: "Any number; changing it rotates the signing secret in place to `secret_wo` (or to a " +
+					"new Atlas-generated one when `secret_wo` is unset).",
 				Optional: true,
 			},
 			"active": schema.BoolAttribute{
@@ -218,6 +239,10 @@ func (r *webhookEndpointResource) ValidateConfig(ctx context.Context, req resour
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	if !cfg.SecretWO.IsNull() && !cfg.SecretWO.IsUnknown() && !webhookSecretPattern.MatchString(cfg.SecretWO.ValueString()) {
+		resp.Diagnostics.AddAttributeError(path.Root("secret_wo"), "Invalid signing secret",
+			"secret_wo must be whsec_ (optionally prefixed atlas_live_ or atlas_test_) followed by 32-256 characters of A-Za-z0-9+/=_-.")
+	}
 	if cfg.URL.IsUnknown() || cfg.Destination.IsUnknown() {
 		return
 	}
@@ -293,21 +318,14 @@ func (r *webhookEndpointResource) Create(ctx context.Context, req resource.Creat
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// active = false creates the endpoint switched off; secret_wo is the
+	// client-chosen signing secret (write-only, so read from the configuration).
+	body.Active = optionalBool(cfg.Active)
+	body.Secret = optionalString(cfg.SecretWO)
 	created, err := r.client.CreateWebhookEndpointFull(ctx, body)
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to create webhook endpoint", err.Error())
 		return
-	}
-	// A new endpoint starts active; pause it when the configuration says so.
-	if !plan.Active.IsNull() && !plan.Active.IsUnknown() && !plan.Active.ValueBool() {
-		secret := created.Secret
-		paused, err := r.client.UpdateWebhookEndpointFull(ctx, created.ID, client.WebhookEndpointWrite{Active: client.Ptr(false)})
-		if err != nil {
-			resp.Diagnostics.AddError("Unable to pause webhook endpoint", err.Error())
-			return
-		}
-		created = paused
-		created.Secret = secret
 	}
 	r.mapToState(ctx, created, &plan, &resp.Diagnostics, true)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -371,8 +389,16 @@ func (r *webhookEndpointResource) Update(ctx context.Context, req resource.Updat
 	// forward from prior state.
 	r.mapToState(ctx, updated, &plan, &resp.Diagnostics, false)
 	plan.Secret = state.Secret
-	if !plan.RotateTrigger.Equal(state.RotateTrigger) {
-		secret, err := r.client.RotateWebhookSecret(ctx, state.ID.ValueString())
+	// A changed trigger rotates to a new Atlas secret; a changed
+	// secret_wo_version rotates to secret_wo (or a new Atlas one when unset).
+	rotate := !plan.RotateTrigger.Equal(state.RotateTrigger)
+	var chosen *string
+	if !plan.SecretWOVersion.Equal(state.SecretWOVersion) {
+		rotate = true
+		chosen = optionalString(cfg.SecretWO)
+	}
+	if rotate {
+		secret, err := r.client.RotateWebhookSecretTo(ctx, state.ID.ValueString(), chosen)
 		if err != nil {
 			resp.Diagnostics.AddError("Unable to rotate webhook signing secret", err.Error())
 			return
@@ -464,9 +490,21 @@ func (r *webhookEndpointResource) mapToState(ctx context.Context, e *client.Webh
 	if withSecret {
 		m.Secret = stringPtrToValue(e.Secret)
 	}
+	m.SecretWO = types.StringNull()
 }
 
-// ModifyPlan plans a new secret when rotate_secret_trigger changes.
+// ModifyPlan plans a new secret when rotate_secret_trigger or
+// secret_wo_version changes.
 func (r *webhookEndpointResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	planSecretRotation(ctx, req, resp, "secret")
+	if req.State.Raw.IsNull() || req.Plan.Raw.IsNull() {
+		return
+	}
+	var planned, prior types.Int64
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root("secret_wo_version"), &planned)...)
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("secret_wo_version"), &prior)...)
+	if resp.Diagnostics.HasError() || planned.Equal(prior) {
+		return
+	}
+	resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("secret"), types.StringUnknown())...)
 }

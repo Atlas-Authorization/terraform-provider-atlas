@@ -4,7 +4,26 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
-## Unreleased
+## 0.16.0 — 2026-11-02
+
+### Added
+
+- **`atlas_before_user_create_hook`** — the `before_user_create` hook as code (singleton): `enabled`, `url`, write-only `signing_secret_wo` + `signing_secret_wo_version`, `timeout_ms` (500–5000) and `fail_closed` (refuse the sign-up when the hook times out, fails or answers something unreadable); read-only `signing_secret_set`. Destroy switches the hook off and clears its URL and secret. Import with `before_user_create_hook`. Needs the `instance:read` and `instance:write` scopes.
+- **`atlas_iga_entitlement`, `atlas_iga_sod_rule`, `atlas_iga_birthright_rule`** — identity governance as code: the requestable entitlement catalog (kind, target, owner, risk level, approval steps, maximum duration), separation-of-duties rules (block, or add an approval step) and birthright rules (joiner/mover access that follows group, organization, app-role or email-domain membership). Import by id. Need the `iga:read` and `iga:write` scopes.
+- **`atlas_mcp_gateway`** — an MCP tool gateway in front of your MCP server for Atlas agents: `name`, `upstream_url`, write-only `upstream_authorization`, `default_policy`, per-tool `tools` policy (JSON: scopes, argument conditions, approval, masking) and `enabled`; exports the gateway `url`. Import by id. Needs the `machines:read` and `machines:write` scopes.
+- **`atlas_vc_credential_type`** — a verifiable credential type Atlas issues to wallets and verifies (SD-JWT VC or ISO 18013-5 mdoc): `vct` (the docType for `mso_mdoc`), `name`, `format`, `namespace`, `lifetime_seconds` and ordered `claims` (`name`, `source`, `disclosable`, `value_type`). Immutable: any change replaces it. `iaca_roots` and `signer_chain` configure ISO 18013-5 certificate-chain trust for mdocs. Import by id. Needs the `vc:read` and `vc:write` scopes.
+- **`atlas_oauth_client`** gains `require_verified_email` (Boolean, default `false`, any client): Atlas issues no authorization code for a user whose primary email is not verified; the user is sent through email verification once, otherwise the client gets `access_denied` with the reason. The `atlas_oauth_client` data source gains it read-only.
+- **`atlas_oauth_client`** gains `refresh_touches_session` (Boolean, default `false`, first-party clients only; the plan fails on a client Terraform can tell is third-party): each refresh keeps the Atlas session alive and fails (`invalid_grant`) once it has ended. The `atlas_oauth_client` data source gains it read-only. The API's one-shot `add_redirect_origins` flag is deliberately not exposed: manage those origins in `atlas_instance_config.allowed_origins`.
+- **`atlas_oauth_client`** gains `login_url` and `consent_url`: your own sign-in and consent pages for the client (delegated login and consent). Removing one clears it.
+- **`atlas_jwt_connection`** — a trusted-JWT connection: your system signs a short-lived JWT and sends the person to `login_url?token=…&redirect_url=…`; Atlas verifies it against `jwks_uri`, `issuer`, `audience` and `max_age_seconds` (single-use `jti`), signs them in and seats them in `organization_id` with `default_role_id`. `status` (`draft`, `active`, `disabled`), `email_claim`; read-only `login_url`, `created_at`, `updated_at`. Import by id. Needs the `sso_connections:write` scope.
+- **`atlas_organization`** gains `external_id`, `public_metadata`, `private_metadata` (sent, never read back) and `role_mappings` (role key → your product's name, echoed in the `org_role_mapped` claim). `created_by` is now optional: without it the organization is created by your backend with no members.
+- **`atlas_domain`** gains `method` (`cname` or `path`) and `base_path` for a path mount on your own host (no DNS), with read-only `routing`, `frontend_api_url`, `verification_url`, `verification_token` and `verification_content`. `cname_target` is null for a path mount.
+- **`atlas_webhook_endpoint`** gains a client-chosen signing secret (`secret_wo` + `secret_wo_version`, write-only; a new version rotates to it in place), and `active = false` now creates the endpoint switched off in one call.
+- **`atlas_referral_settings`** gains `partner_portal_url` and `report_linked_atlas_id_signups`.
+- **`atlas_cookie_consent`** gains `host_aliases` (at most 10 hostnames the CMP site is knowingly not registered for).
+- **`atlas_instance_config`** gains `account_portal_panels`: show or hide panels of the hosted account page (written to the instance branding as `accountPortal.panels`).
+
+## 0.15.0 — 2026-10-28
 
 ### Added
 
