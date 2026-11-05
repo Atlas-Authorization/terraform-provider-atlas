@@ -154,6 +154,8 @@ environment.
 | [`atlas_group`](resources/group.md) | Create an instance group. |
 | [`atlas_group_rule`](resources/group_rule.md) | Create a rule: when a user matches condition, run the actions (add to a group, grant an app role, set a trait). |
 | [`atlas_machine`](resources/machine.md) | Create a named machine (M2M) identity; returns the machine secret (mk_) ONCE. |
+| [`atlas_machine_grant`](resources/machine_grant.md) | Authorize a machine for a resource server and its scopes. |
+| [`atlas_organization_machine_membership`](resources/organization_machine_membership.md) | Make a machine a member of an organization with a role. |
 | [`atlas_action`](resources/action.md) | Create an Action for a trigger (see the Actions guide for the 22 triggers: sign-in, registration, tokens, credentials, MFA, profile, organizations, billing). |
 | [`atlas_action_template`](resources/action_template.md) | Create a gallery template (slug, name, author_name, summary, trigger, licence…), optionally with its first version (version, code, secret names). |
 | [`atlas_flow`](resources/flow.md) | Create a sign-in journey (version 1, active unless activate is false). |

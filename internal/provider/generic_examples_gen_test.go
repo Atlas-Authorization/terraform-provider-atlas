@@ -179,6 +179,14 @@ var genExampleConfigs = map[string]string{
 
 }
 `,
+	"machine_grant": `resource "atlas_machine_grant" "example" {
+  machine_id = "tf-machine-grant"
+}
+`,
+	"organization_machine_membership": `resource "atlas_organization_machine_membership" "example" {
+  organization_id = "tf-organization-machine-membership"
+}
+`,
 	"action": `resource "atlas_action" "example" {
 
 }
