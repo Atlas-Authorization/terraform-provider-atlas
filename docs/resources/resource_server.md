@@ -36,6 +36,7 @@ resource "atlas_resource_server" "billing_api" {
 ### Optional
 
 - `scopes` (Block List) — Scopes this API defines. Each block has `value` (String, required) and `description` (String, optional).
+- `scope_presets` (Map of List of String) — Named bundles over `scopes`: preset name to a list of scope values. A grant or token request can name a preset instead of listing its scopes. Set it to `{}` to remove them all.
 - `token_ttl_seconds` (Number) — Lifetime of machine tokens for this API, in seconds.
 - `signing_alg` (String) — JWT signing algorithm for issued tokens. Atlas signs machine tokens with the instance RS256 key, so the only accepted value is `RS256` (the default).
 

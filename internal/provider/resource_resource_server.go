@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/atlas/terraform-provider-atlas/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -37,6 +39,7 @@ type resourceServerModel struct {
 	Identifier      types.String               `tfsdk:"identifier"`
 	Name            types.String               `tfsdk:"name"`
 	Scopes          []resourceServerScopeModel `tfsdk:"scopes"`
+	ScopePresets    types.Map                  `tfsdk:"scope_presets"`
 	TokenTTLSeconds types.Int64                `tfsdk:"token_ttl_seconds"`
 	SigningAlg      types.String               `tfsdk:"signing_alg"`
 	CreatedAt       types.Int64                `tfsdk:"created_at"`
@@ -87,6 +90,13 @@ func (r *resourceServerResource) Schema(_ context.Context, _ resource.SchemaRequ
 					},
 				},
 			},
+			"scope_presets": schema.MapAttribute{
+				MarkdownDescription: "Named bundles over `scopes`: preset name to a list of scope values. A grant or " +
+					"token request can name a preset instead of listing its scopes. Set it to `{}` to remove them all.",
+				ElementType: types.ListType{ElemType: types.StringType},
+				Optional:    true,
+				Computed:    true,
+			},
 			"token_ttl_seconds": schema.Int64Attribute{
 				MarkdownDescription: "Lifetime of machine tokens for this API, in seconds.",
 				Optional:            true,
@@ -119,9 +129,10 @@ func (r *resourceServerResource) Create(ctx context.Context, req resource.Create
 	}
 
 	body := client.ResourceServerWrite{
-		Identifier: client.Ptr(plan.Identifier.ValueString()),
-		Name:       client.Ptr(plan.Name.ValueString()),
-		Scopes:     scopesToAPI(plan.Scopes),
+		Identifier:   client.Ptr(plan.Identifier.ValueString()),
+		Name:         client.Ptr(plan.Name.ValueString()),
+		Scopes:       scopesToAPI(plan.Scopes),
+		ScopePresets: scopePresetsToAPI(ctx, plan.ScopePresets, &resp.Diagnostics),
 	}
 	if !plan.TokenTTLSeconds.IsNull() && !plan.TokenTTLSeconds.IsUnknown() {
 		body.TokenTTLSeconds = client.Ptr(plan.TokenTTLSeconds.ValueInt64())
@@ -165,8 +176,9 @@ func (r *resourceServerResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 	body := client.ResourceServerWrite{
-		Name:   client.Ptr(plan.Name.ValueString()),
-		Scopes: scopesToAPI(plan.Scopes),
+		Name:         client.Ptr(plan.Name.ValueString()),
+		Scopes:       scopesToAPI(plan.Scopes),
+		ScopePresets: scopePresetsToAPI(ctx, plan.ScopePresets, &resp.Diagnostics),
 	}
 	if !plan.TokenTTLSeconds.IsNull() && !plan.TokenTTLSeconds.IsUnknown() {
 		body.TokenTTLSeconds = client.Ptr(plan.TokenTTLSeconds.ValueInt64())
@@ -206,10 +218,35 @@ func (r *resourceServerResource) mapToState(rs *client.ResourceServer, m *resour
 	m.Identifier = types.StringValue(rs.Identifier)
 	m.Name = types.StringValue(rs.Name)
 	m.Scopes = scopesFromAPI(rs.Scopes)
+	m.ScopePresets = scopePresetsFromAPI(rs.ScopePresets)
 	m.TokenTTLSeconds = types.Int64Value(rs.TokenTTLSeconds)
 	m.SigningAlg = types.StringValue(resourceServerSigningAlg(rs.SigningAlg))
 	m.CreatedAt = types.Int64Value(rs.CreatedAt)
 	m.UpdatedAt = types.Int64Value(rs.UpdatedAt)
+}
+
+// scopePresetsToAPI is nil (left unchanged) when the configuration does not state them.
+func scopePresetsToAPI(ctx context.Context, in types.Map, diags *diag.Diagnostics) *map[string][]string {
+	if in.IsNull() || in.IsUnknown() {
+		return nil
+	}
+	out := map[string][]string{}
+	diags.Append(in.ElementsAs(ctx, &out, false)...)
+	return &out
+}
+
+// scopePresetsFromAPI always gives a known value, so a configuration of {} stays stable.
+func scopePresetsFromAPI(in map[string][]string) types.Map {
+	elem := types.ListType{ElemType: types.StringType}
+	values := map[string]attr.Value{}
+	for name, scopes := range in {
+		items := make([]attr.Value, 0, len(scopes))
+		for _, scope := range scopes {
+			items = append(items, types.StringValue(scope))
+		}
+		values[name] = types.ListValueMust(types.StringType, items)
+	}
+	return types.MapValueMust(elem, values)
 }
 
 func scopesToAPI(in []resourceServerScopeModel) []client.ResourceServerScope {

@@ -27,6 +27,7 @@ output "billing_audience" {
 - `identifier` (String) — The audience identifier.
 - `name` (String) — Human-readable name.
 - `scopes` (List of Object) — Scopes this API defines; each has `value` and `description`.
+- `scope_presets` (Map of List of String) — Named bundles over `scopes`: preset name to a list of scope values.
 - `token_ttl_seconds` (Number) — Machine-token lifetime (seconds).
 - `signing_alg` (String) — JWT signing algorithm.
 - `created_at` (Number) — Creation time (epoch ms).

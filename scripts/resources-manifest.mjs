@@ -71,6 +71,8 @@ export const manifest = [
   { t: 'group', item: '/v1/groups/{id}', ds: true },
   { t: 'group_rule', item: '/v1/group_rules/{id}' },
   { t: 'machine', item: '/v1/machines/{id}', ds: true },
+  { t: 'machine_grant', item: '/v1/machines/{id}/grants/{grantId}', params: { id: 'machine_id' }, update: '' },
+  { t: 'organization_machine_membership', item: '/v1/organizations/{id}/machine_memberships/{machineId}', params: { id: 'organization_id' }, idField: 'machine_id' },
   { t: 'action', item: '/v1/actions/{id}', ds: true },
   { t: 'action_template', item: '/v1/action_templates/{id}' },
   { t: 'flow', item: '/v1/flows/{id}', ds: true },

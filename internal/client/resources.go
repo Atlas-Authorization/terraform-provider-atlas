@@ -227,6 +227,7 @@ type ResourceServer struct {
 	Identifier      string                `json:"identifier"`
 	Name            string                `json:"name"`
 	Scopes          []ResourceServerScope `json:"scopes"`
+	ScopePresets    map[string][]string   `json:"scope_presets,omitempty"`
 	TokenTTLSeconds int64                 `json:"token_ttl_seconds"`
 	SigningAlg      string                `json:"signing_alg"`
 	CreatedAt       int64                 `json:"created_at"`
@@ -235,11 +236,13 @@ type ResourceServer struct {
 
 // ResourceServerWrite is the create/update payload.
 type ResourceServerWrite struct {
-	Identifier      *string               `json:"identifier,omitempty"`
-	Name            *string               `json:"name,omitempty"`
-	Scopes          []ResourceServerScope `json:"scopes,omitempty"`
-	TokenTTLSeconds *int64                `json:"token_ttl_seconds,omitempty"`
-	SigningAlg      *string               `json:"signing_alg,omitempty"`
+	Identifier *string               `json:"identifier,omitempty"`
+	Name       *string               `json:"name,omitempty"`
+	Scopes     []ResourceServerScope `json:"scopes,omitempty"`
+	// A pointer, so an empty map is sent: it removes every preset.
+	ScopePresets    *map[string][]string `json:"scope_presets,omitempty"`
+	TokenTTLSeconds *int64               `json:"token_ttl_seconds,omitempty"`
+	SigningAlg      *string              `json:"signing_alg,omitempty"`
 }
 
 func (c *Client) CreateResourceServer(ctx context.Context, body ResourceServerWrite) (*ResourceServer, error) {

@@ -26,6 +26,7 @@ type resourceServerDataModel struct {
 	Identifier      types.String               `tfsdk:"identifier"`
 	Name            types.String               `tfsdk:"name"`
 	Scopes          []resourceServerScopeModel `tfsdk:"scopes"`
+	ScopePresets    types.Map                  `tfsdk:"scope_presets"`
 	TokenTTLSeconds types.Int64                `tfsdk:"token_ttl_seconds"`
 	SigningAlg      types.String               `tfsdk:"signing_alg"`
 	CreatedAt       types.Int64                `tfsdk:"created_at"`
@@ -60,6 +61,11 @@ func (d *resourceServerDataSource) Schema(_ context.Context, _ datasource.Schema
 					},
 				},
 			},
+			"scope_presets": schema.MapAttribute{
+				Computed:            true,
+				ElementType:         types.ListType{ElemType: types.StringType},
+				MarkdownDescription: "Named bundles over `scopes`: preset name to a list of scope values.",
+			},
 			"token_ttl_seconds": schema.Int64Attribute{Computed: true, MarkdownDescription: "Machine-token lifetime (seconds)."},
 			"signing_alg":       schema.StringAttribute{Computed: true, MarkdownDescription: "JWT signing algorithm."},
 			"created_at":        schema.Int64Attribute{Computed: true, MarkdownDescription: "Creation time (epoch ms)."},
@@ -82,6 +88,7 @@ func (d *resourceServerDataSource) Read(ctx context.Context, req datasource.Read
 	config.Identifier = types.StringValue(rs.Identifier)
 	config.Name = types.StringValue(rs.Name)
 	config.Scopes = scopesFromAPI(rs.Scopes)
+	config.ScopePresets = scopePresetsFromAPI(rs.ScopePresets)
 	config.TokenTTLSeconds = types.Int64Value(rs.TokenTTLSeconds)
 	config.SigningAlg = types.StringValue(resourceServerSigningAlg(rs.SigningAlg))
 	config.CreatedAt = types.Int64Value(rs.CreatedAt)
