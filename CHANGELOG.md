@@ -4,6 +4,12 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
+## 0.17.0 — 2026-11-06
+
+### Added
+
+- Resources regenerated from the live API, including new fields on `atlas_resource_server`.
+
 ## 0.16.0 — 2026-11-02
 
 ### Added
