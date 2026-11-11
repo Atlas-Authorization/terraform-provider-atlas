@@ -19,7 +19,7 @@ resource "atlas_log_stream" "example" {
 ### Optional
 
 - `name` (String) The `name` field.
-- `type` (String) The `type` field. One of: `http`, `datadog`, `splunk`, `s3`, `gcs`, `azure_blob`, `aws_eventbridge`, `kinesis_firehose`, `cloudwatch_logs`, `elastic`, `sumo_logic`, `new_relic`, `azure_event_hubs`, `sentinel`, `gcp_pubsub`, `bigquery`, `snowflake`, `loki`, `otlp`, `kafka`. Changing it forces replacement.
+- `type` (String) The `type` field. One of: `http`, `datadog`, `splunk`, `s3`, `gcs`, `azure_blob`, `aws_eventbridge`, `kinesis_firehose`, `cloudwatch_logs`, `elastic`, `sumo_logic`, `new_relic`, `azure_event_hubs`, `sentinel`, `gcp_pubsub`, `bigquery`, `snowflake`, `loki`, `otlp`, `kafka`, `watchtower`, `axiom`, `betterstack`, `honeycomb`, `sentry`. Changing it forces replacement.
 - `destination` (String, JSON) The `destination` field. A JSON document (use `jsonencode`).
 - `event_filter` (List of String) The `event_filter` field.
 - `enabled` (Boolean) The `enabled` field.

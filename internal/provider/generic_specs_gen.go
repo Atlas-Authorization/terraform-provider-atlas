@@ -959,7 +959,7 @@ func genResourceSpecs() []genSpec {
 			Desc: "Create a log stream. destination secrets (api_key / token / auth headers) are write-only; the cursor starts at the current event so only new events forward. Needs the `log_streams:write` scope.",
 			Attrs: []genAttr{
 				{Name: "name", API: "name", Kind: "string", Desc: "The `name` field."},
-				{Name: "type", API: "type", Kind: "string", Immut: true, Desc: "The `type` field. One of: `http`, `datadog`, `splunk`, `s3`, `gcs`, `azure_blob`, `aws_eventbridge`, `kinesis_firehose`, `cloudwatch_logs`, `elastic`, `sumo_logic`, `new_relic`, `azure_event_hubs`, `sentinel`, `gcp_pubsub`, `bigquery`, `snowflake`, `loki`, `otlp`, `kafka`. Changing it forces replacement."},
+				{Name: "type", API: "type", Kind: "string", Immut: true, Desc: "The `type` field. One of: `http`, `datadog`, `splunk`, `s3`, `gcs`, `azure_blob`, `aws_eventbridge`, `kinesis_firehose`, `cloudwatch_logs`, `elastic`, `sumo_logic`, `new_relic`, `azure_event_hubs`, `sentinel`, `gcp_pubsub`, `bigquery`, `snowflake`, `loki`, `otlp`, `kafka`, `watchtower`, `axiom`, `betterstack`, `honeycomb`, `sentry`. Changing it forces replacement."},
 				{Name: "destination", API: "destination", Kind: "json", Desc: "The `destination` field. A JSON document (use `jsonencode`)."},
 				{Name: "event_filter", API: "event_filter", Kind: "strlist", Desc: "The `event_filter` field."},
 				{Name: "enabled", API: "enabled", Kind: "bool", Desc: "The `enabled` field."},
