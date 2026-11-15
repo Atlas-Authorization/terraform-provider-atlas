@@ -4,6 +4,19 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
+## 0.18.0 — 2026-11-14
+
+### Added
+
+- **13 resources** for configuration the provider could not yet manage, generated from the OpenAPI document: `atlas_erasure_connector` (downstream systems an erasure request fans out to; credentials write-only), `atlas_oauth_publisher` and `atlas_oauth_publisher_client` (a verified publisher name and the apps attached to it), `atlas_connection_access_rules` (who may use a connection), `atlas_signing_key_schedule` (automatic signing-key rotation), `atlas_audit_chain` (the tamper-evident audit chain; destroy leaves it on), `atlas_policy_audience` and `atlas_policy_translation`, `atlas_referral_reward_rules`, `atlas_region` (data residency; destroy leaves the setting in place), `atlas_config_snapshot`, `atlas_billing_connect_account` and `atlas_agent_delegation` (destroy revokes it).
+- Generated resources regenerated from the current API: new fields such as `atlas_flow.abandon_after_hours`.
+- A field the API takes as either an integer or a string is now a plain string attribute holding ISO 8601 or epoch ms as text (sent as given; epoch ms digits go as a number). The configured spelling is kept while it names the same instant, so a plan shows no diff. `atlas_machine_grant.expires_at` was a JSON string and is now this.
+
+### Changed
+
+- `expires_at`, `plan_ids` and `first_time_only` (on the resources that carry them, such as `atlas_billing_coupon`) now update in place instead of replacing the object.
+- `atlas_machine_grant.resource_server_id` is now required in configuration; the API always required it.
+
 ## 0.17.0 — 2026-11-06
 
 ### Added

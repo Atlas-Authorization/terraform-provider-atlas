@@ -29,6 +29,7 @@ resource "atlas_flow" "example" {
 - `applications` (List of String) OAuth client ids whose sign-ins use this journey instead of the default.
 - `enabled` (Boolean) The `enabled` field.
 - `activate` (Boolean) Make the new version active (default true). Not returned by the API, so it is not detected as drift.
+- `abandon_after_hours` (Number) Hours a started run may sit untouched before journey.abandoned is sent (null = 72).
 
 ### Read-Only
 

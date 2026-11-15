@@ -4,6 +4,7 @@ package provider
 
 func genResourceSpecs() []genSpec {
 	return []genSpec{
+		// /v1/mcp_gateways/{id}
 		{
 			Type: "mcp_gateway", Kind: "dataonly", Item: "/v1/mcp_gateways/{id}", IDField: "id",
 			Write: "", Update: "", GetItem: true, Delete: false,
@@ -11,6 +12,7 @@ func genResourceSpecs() []genSpec {
 			Desc:  "An MCP tool gateway, looked up by id. Needs the `machines:read` scope.",
 			Attrs: []genAttr{},
 		},
+		// /v1/mcp_gateways/{id}/upstreams (create, list)
 		{
 			Type: "mcp_gateway_upstream", Kind: "coll", Item: "/v1/mcp_gateways/{mcp_gateway_id}/upstreams/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -36,6 +38,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "The `created_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/mcp_gateways/{id}/packs (create, list)
 		{
 			Type: "mcp_gateway_pack", Kind: "coll", Item: "/v1/mcp_gateways/{mcp_gateway_id}/packs/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -53,6 +56,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "The `created_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/mcp_gateways/{id}/budgets (create, list)
 		{
 			Type: "mcp_gateway_budget", Kind: "coll", Item: "/v1/mcp_gateways/{mcp_gateway_id}/budgets/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -74,6 +78,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "The `created_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/mcp_registry (create, list)
 		{
 			Type: "mcp_registry_entry", Kind: "coll", Item: "/v1/mcp_registry/{id}", IDField: "id",
 			Write: "POST", Update: "", GetItem: false, Delete: true,
@@ -90,6 +95,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "The `created_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/connection_actions/{provider}/{name}
 		{
 			Type: "connection_action", Kind: "keyed", Item: "/v1/connection_actions/{provider_name}/{action_name}", IDField: "id",
 			Write: "PUT", Update: "PUT", GetItem: true, Delete: true,
@@ -100,13 +106,16 @@ func genResourceSpecs() []genSpec {
 				{Name: "action_name", API: "action_name", Kind: "string", Req: true, Param: true, Desc: "The action name this object belongs to. Changing it forces replacement."},
 				{Name: "description", API: "description", Kind: "string", Req: true, Desc: "The `description` field."},
 				{Name: "input", API: "input", Kind: "json", WriteOnly: true, Desc: "JSON Schema (type object) of the input. A JSON document (use `jsonencode`). Not returned by the API, so it is not detected as drift."},
+				{Name: "output", API: "output", Kind: "json", WriteOnly: true, Desc: "JSON Schema of what the action returns (after response.path). Published as types and checked against every successful answer. A JSON document (use `jsonencode`). Not returned by the API, so it is not detected as drift."},
 				{Name: "request", API: "request", Kind: "json", Req: true, WriteOnly: true, Desc: "The `request` field. A JSON document (use `jsonencode`). Not returned by the API, so it is not detected as drift."},
 				{Name: "response", API: "response", Kind: "json", WriteOnly: true, Desc: "The `response` field. A JSON document (use `jsonencode`). Not returned by the API, so it is not detected as drift."},
 				{Name: "scopes", API: "scopes", Kind: "strlist", Desc: "The `scopes` field."},
 				{Name: "paginate", API: "paginate", Kind: "json", WriteOnly: true, Desc: "The `paginate` field. A JSON document (use `jsonencode`). Not returned by the API, so it is not detected as drift."},
 				{Name: "mutating", API: "mutating", Kind: "bool", Desc: "The `mutating` field."},
+				{Name: "output_schema", API: "output_schema", Kind: "json", Comp: true, Desc: "JSON Schema of what the action returns (after its response path), or null when it declares none. Every successful answer is checked against it; a mismatch is a provider change on the radar and never fails the call. A JSON document (use `jsonencode`)."},
 			},
 		},
+		// /v1/connections/{id}/triggers (create, list)
 		{
 			Type: "connection_trigger", Kind: "coll", Item: "/v1/connections/{connection_id}/triggers/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -133,6 +142,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "The `created_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/agents/{id}/lifecycle
 		{
 			Type: "agent_lifecycle", Kind: "keyed", Item: "/v1/agents/{agent_id}/lifecycle", IDField: "id",
 			Write: "PUT", Update: "PUT", GetItem: true, Delete: false,
@@ -147,6 +157,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "renewal_count", API: "renewal_count", Kind: "int", Comp: true, Volatile: true, Desc: "The `renewal_count` field."},
 			},
 		},
+		// /v1/telemetry_export
 		{
 			Type: "telemetry_export", Kind: "single", Item: "/v1/telemetry_export", IDField: "id",
 			Write: "PUT", Update: "PUT", GetItem: true, Delete: false,
@@ -162,6 +173,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "has_headers", API: "has_headers", Kind: "bool", Comp: true, Desc: "Headers (collector tokens) are write-only."},
 			},
 		},
+		// /v1/access_policies (create, list)
 		{
 			Type: "access_policy", Kind: "coll", Item: "/v1/access_policies/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -181,6 +193,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/device_assurance_policies (create, list)
 		{
 			Type: "device_assurance_policy", Kind: "coll", Item: "/v1/device_assurance_policies/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -203,6 +216,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Updated (epoch ms)."},
 			},
 		},
+		// /v1/device_integrations (create, list)
 		{
 			Type: "device_integration", Kind: "coll", Item: "/v1/device_integrations/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -225,6 +239,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Updated (epoch ms)."},
 			},
 		},
+		// /v1/authenticator_policies (create, list)
 		{
 			Type: "authenticator_policy", Kind: "coll", Item: "/v1/authenticator_policies/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -241,6 +256,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Updated (epoch ms)."},
 			},
 		},
+		// /v1/fraud/email_risk/settings
 		{
 			Type: "email_risk_settings", Kind: "single", Item: "/v1/fraud/email_risk/settings", IDField: "id",
 			Write: "PUT", Update: "PUT", GetItem: true, Delete: false,
@@ -259,6 +275,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "The `updated_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/messaging/suppressions (create, list)
 		{
 			Type: "email_suppression", Kind: "coll", Item: "/v1/messaging/suppressions/{id}", IDField: "email",
 			Write: "POST", Update: "", GetItem: false, Delete: true,
@@ -272,6 +289,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Added (epoch ms)."},
 			},
 		},
+		// /v1/workflows (create, list)
 		{
 			Type: "workflow", Kind: "coll", Item: "/v1/workflows/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -288,6 +306,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/chat_integrations (create, list)
 		{
 			Type: "chat_integration", Kind: "coll", Item: "/v1/chat_integrations/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -304,6 +323,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "The `updated_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/iga/bundles (create, list)
 		{
 			Type: "iga_bundle", Kind: "coll", Item: "/v1/iga/bundles/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -323,6 +343,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Updated (epoch ms)."},
 			},
 		},
+		// /v1/iga/eligibilities (create, list)
 		{
 			Type: "iga_eligibility", Kind: "coll", Item: "/v1/iga/eligibilities/{id}", IDField: "id",
 			Write: "POST", Update: "", GetItem: false, Delete: true,
@@ -337,6 +358,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Created (epoch ms)."},
 			},
 		},
+		// /v1/iga/entitlements/{id}
 		{
 			Type: "iga_entitlement", Kind: "dataonly", Item: "/v1/iga/entitlements/{id}", IDField: "id",
 			Write: "", Update: "", GetItem: true, Delete: false,
@@ -359,6 +381,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Desc: "Updated (epoch ms)."},
 			},
 		},
+		// /v1/iga/campaigns (create, list)
 		{
 			Type: "iga_campaign", Kind: "coll", Item: "/v1/iga/campaigns/{id}", IDField: "id",
 			Write: "POST", Update: "", GetItem: true, Delete: true,
@@ -385,6 +408,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Created (epoch ms)."},
 			},
 		},
+		// /v1/administrative_units (create, list)
 		{
 			Type: "administrative_unit", Kind: "coll", Item: "/v1/administrative_units/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -402,6 +426,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Updated, Unix ms."},
 			},
 		},
+		// /v1/organizations/{id}/applications/{clientId}
 		{
 			Type: "organization_application", Kind: "keyed", Item: "/v1/organizations/{organization_id}/applications/{client_id}", IDField: "id",
 			Write: "PUT", Update: "PUT", GetItem: false, Delete: true,
@@ -418,6 +443,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "The `updated_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/oauth_clients/{id}/organization_access
 		{
 			Type: "oauth_client_organization_access", Kind: "keyed", Item: "/v1/oauth_clients/{client_id}/organization_access", IDField: "id",
 			Write: "PUT", Update: "PUT", GetItem: false, Delete: false,
@@ -428,6 +454,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "mode", API: "mode", Kind: "string", Req: true, Desc: "The `mode` field. One of: `open`, `restricted`."},
 			},
 		},
+		// /v1/organization_connections (create, list)
 		{
 			Type: "organization_connection", Kind: "coll", Item: "/v1/organization_connections/{id}", IDField: "id",
 			Write: "POST", Update: "", GetItem: false, Delete: true,
@@ -447,6 +474,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "note", API: "note", Kind: "string", Comp: true, Desc: "The `note` field."},
 			},
 		},
+		// /v1/openfga/stores/{store}/assertions/{model}
 		{
 			Type: "fga_assertions", Kind: "keyed", Item: "/v1/openfga/stores/{store_id}/assertions/{model_id}", IDField: "id",
 			Write: "PUT", Update: "PUT", GetItem: true, Delete: false,
@@ -458,6 +486,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "assertions", API: "assertions", Kind: "json", Desc: "The `assertions` field. A JSON document (use `jsonencode`)."},
 			},
 		},
+		// /v1/fga/stores/{id}/materializations (create, list)
 		{
 			Type: "fga_materialization", Kind: "coll", Item: "/v1/fga/stores/{store_id}/materializations/{id}", IDField: "id",
 			Write: "POST", Update: "", GetItem: false, Delete: true,
@@ -477,6 +506,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "error", API: "error", Kind: "string", Comp: true, Volatile: true, Desc: "The `error` field."},
 			},
 		},
+		// /v1/abac/token_mapping
 		{
 			Type: "abac_token_mapping", Kind: "single", Item: "/v1/abac/token_mapping", IDField: "id",
 			Write: "PUT", Update: "PUT", GetItem: true, Delete: false,
@@ -490,6 +520,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "trusted_issuers", API: "trusted_issuers", Kind: "json", Desc: "The `trusted_issuers` field. A JSON document (use `jsonencode`)."},
 			},
 		},
+		// /v1/billing/coupons (create, list)
 		{
 			Type: "billing_coupon", Kind: "coll", Item: "/v1/billing/coupons/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -504,9 +535,9 @@ func genResourceSpecs() []genSpec {
 				{Name: "duration", API: "duration", Kind: "string", Immut: true, Desc: "The `duration` field. One of: `once`, `repeating`, `forever`. Changing it forces replacement."},
 				{Name: "duration_months", API: "duration_months", Kind: "int", Immut: true, Desc: "The `duration_months` field. Changing it forces replacement."},
 				{Name: "max_redemptions", API: "max_redemptions", Kind: "int", Desc: "The `max_redemptions` field."},
-				{Name: "expires_at", API: "expires_at", Kind: "int", Immut: true, Desc: "The `expires_at` field. (epoch ms) Changing it forces replacement."},
-				{Name: "plan_ids", API: "plan_ids", Kind: "strlist", Immut: true, Desc: "The `plan_ids` field. Changing it forces replacement."},
-				{Name: "first_time_only", API: "first_time_only", Kind: "bool", Immut: true, Desc: "The `first_time_only` field. Changing it forces replacement."},
+				{Name: "expires_at", API: "expires_at", Kind: "int", Desc: "The `expires_at` field. (epoch ms)"},
+				{Name: "plan_ids", API: "plan_ids", Kind: "strlist", Desc: "The `plan_ids` field."},
+				{Name: "first_time_only", API: "first_time_only", Kind: "bool", Desc: "The `first_time_only` field."},
 				{Name: "provider_value", API: "provider", Kind: "string", WriteOnly: true, Immut: true, Desc: "The `provider` field. Not returned by the API, so it is not detected as drift. Changing it forces replacement."},
 				{Name: "redeemed_count", API: "redeemed_count", Kind: "int", Comp: true, Volatile: true, Desc: "The `redeemed_count` field."},
 				{Name: "active", API: "active", Kind: "bool", Comp: true, Desc: "The `active` field."},
@@ -515,6 +546,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "The `updated_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/audit_retention
 		{
 			Type: "audit_retention", Kind: "single", Item: "/v1/audit_retention", IDField: "id",
 			Write: "PUT", Update: "PUT", GetItem: true, Delete: false,
@@ -529,6 +561,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "max_days", API: "max_days", Kind: "int", Comp: true, Desc: "The `max_days` field."},
 			},
 		},
+		// /v1/instance/data_key_provider
 		{
 			Type: "data_key_provider", Kind: "single", Item: "/v1/instance/data_key_provider", IDField: "id",
 			Write: "PUT", Update: "PUT", GetItem: true, Delete: false,
@@ -539,6 +572,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "status", API: "__raw", Kind: "json", Comp: true, Volatile: true, Desc: "The full object the API returned, as a JSON document."},
 			},
 		},
+		// /v1/scim_provisioning_targets (create, list)
 		{
 			Type: "scim_provisioning_target", Kind: "coll", Item: "/v1/scim_provisioning_targets/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -565,6 +599,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "The `updated_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/scim_resource_types (create, list)
 		{
 			Type: "scim_resource_type", Kind: "coll", Item: "/v1/scim_resource_types/{id}", IDField: "id",
 			Write: "POST", Update: "", GetItem: true, Delete: true,
@@ -579,6 +614,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "The `created_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/app_catalog/custom_presets (create, list)
 		{
 			Type: "app_catalog_preset", Kind: "coll", Item: "/v1/app_catalog/custom_presets/{id}", IDField: "id",
 			Write: "POST", Update: "", GetItem: false, Delete: true,
@@ -589,6 +625,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "name", API: "name", Kind: "string", Comp: true, Desc: "The `name` field."},
 			},
 		},
+		// /v1/cloud_access/targets (create, list)
 		{
 			Type: "cloud_access_target", Kind: "coll", Item: "/v1/cloud_access/targets/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -604,6 +641,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "The `updated_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/wsfed_connections (create, list)
 		{
 			Type: "wsfed_connection", Kind: "coll", Item: "/v1/wsfed_connections/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -629,6 +667,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "The `updated_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/oauth_client_profiles/{name}
 		{
 			Type: "oauth_client_profile", Kind: "keyed", Item: "/v1/oauth_client_profiles/{name}", IDField: "id",
 			Write: "PUT", Update: "PUT", GetItem: false, Delete: true,
@@ -647,6 +686,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "allowed_claims", API: "allowed_claims", Kind: "strlist", Desc: "Claim names a `claims` request may ask for; null = any."},
 			},
 		},
+		// /v1/groups (create, list)
 		{
 			Type: "group", Kind: "coll", Item: "/v1/groups/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -668,6 +708,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Updated (epoch ms)."},
 			},
 		},
+		// /v1/group_rules (create, list)
 		{
 			Type: "group_rule", Kind: "coll", Item: "/v1/group_rules/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -684,6 +725,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Updated (epoch ms)."},
 			},
 		},
+		// /v1/machines (create, list)
 		{
 			Type: "machine", Kind: "coll", Item: "/v1/machines/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -699,13 +741,16 @@ func genResourceSpecs() []genSpec {
 				{Name: "effective_status", API: "effective_status", Kind: "string", Comp: true, Desc: "Derived status: 'active' only when the machine is active AND its owner is usable; 'owner_suspended' when active but the owner is not; otherwise the raw status."},
 				{Name: "device_key", API: "device_key", Kind: "string", Comp: true, Desc: "The stable device self-identifier supplied at enrolment (null when none). Lets a fleet manager correlate this record with the device it re-enrolled across tokens."},
 				{Name: "public_key_jkt", API: "public_key_jkt", Kind: "string", Comp: true, Desc: "RFC 7638 thumbprint of the device public key."},
+				{Name: "token_binding", API: "token_binding", Kind: "string", Comp: true, Sens: true, Desc: "The sender constraint every token this machine mints must carry: none (a plain bearer token), dpop (a DPoP proof, token bound with cnf.jkt), mtls (a client certificate, bound with cnf x5t#S256) or any. A proof or certificate sent under none still binds the token. Returned once, on create."},
 				{Name: "metadata", API: "metadata", Kind: "json", Comp: true, Desc: "Device metadata (hostname, os, app_version, last_seen_at). A JSON document (use `jsonencode`)."},
 				{Name: "enrolled_at", API: "enrolled_at", Kind: "int", Comp: true, Desc: "When the device completed enrolment (epoch ms)."},
+				{Name: "last_token_at", API: "last_token_at", Kind: "int", Comp: true, Volatile: true, Desc: "When the machine last minted a token (epoch ms; null = never)."},
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Created (epoch ms)."},
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Updated (epoch ms)."},
 				{Name: "secret", API: "secret", Kind: "string", Comp: true, Sens: true, Desc: "Reveal-once mk_ secret (create/rotate-only). Returned once, on create."},
 			},
 		},
+		// /v1/machines/{id}/grants (create, list)
 		{
 			Type: "machine_grant", Kind: "coll", Item: "/v1/machines/{machine_id}/grants/{id}", IDField: "id",
 			Write: "POST", Update: "", GetItem: false, Delete: true,
@@ -713,13 +758,18 @@ func genResourceSpecs() []genSpec {
 			Desc: "Authorize a machine for a resource server and its scopes. 409 if it already has a grant there. Needs the `machines:write` scope.",
 			Attrs: []genAttr{
 				{Name: "machine_id", API: "machine_id", Kind: "string", Req: true, Param: true, Desc: "The machine id this object belongs to. Changing it forces replacement."},
-				{Name: "resource_server_id", API: "resource_server_id", Kind: "string", Desc: "The `resource_server_id` field."},
+				{Name: "resource_server_id", API: "resource_server_id", Kind: "string", Req: true, Desc: "The `resource_server_id` field."},
 				{Name: "scopes", API: "scopes", Kind: "strlist", Desc: "The `scopes` field."},
 				{Name: "scope_presets", API: "scope_presets", Kind: "strlist", WriteOnly: true, Desc: "The `scope_presets` field. Not returned by the API, so it is not detected as drift."},
+				{Name: "constraints", API: "constraints", Kind: "json", Desc: "Limits carried in the machine token's `constraints` claim (a JSON object of at most 2 KB). A JSON document (use `jsonencode`)."},
+				{Name: "expires_in_seconds", API: "expires_in_seconds", Kind: "int", WriteOnly: true, Desc: "The `expires_in_seconds` field. Not returned by the API, so it is not detected as drift."},
+				{Name: "expires_at", API: "expires_at", Kind: "timestamp", Desc: "Alternative to `expires_in_seconds`, not both. ISO 8601 or epoch ms, as text."},
+				{Name: "expired", API: "expired", Kind: "bool", Comp: true, Desc: "True once `expires_at` has passed. An expired grant mints nothing and is dropped from verify results."},
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Created (epoch ms)."},
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/organizations/{id}/machine_memberships (create, list)
 		{
 			Type: "organization_machine_membership", Kind: "coll", Item: "/v1/organizations/{organization_id}/machine_memberships/{id}", IDField: "machine_id",
 			Write: "POST", Update: "PATCH", GetItem: false, Delete: true,
@@ -734,11 +784,12 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/actions (create, list)
 		{
 			Type: "action", Kind: "coll", Item: "/v1/actions/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
 			Pick: "", List: "", Match: "", DS: true, Init: "", Revoke: "", NoRead: false,
-			Desc: "Create an Action for a trigger (see the Actions guide for the 22 triggers: sign-in, registration, tokens, credentials, MFA, profile, organizations, billing). Secrets are write-only. `runtime: \"http\"` (with `http_target` and an optional `signing_secret`) makes the Action call your own HTTPS endpoint, Standard Webhooks signed, instead of running code; a generated signing secret is returned once as `signing_secret`. Needs the `actions:write` scope.",
+			Desc: "Create an Action for a trigger (see the Actions guide for the 22 triggers: sign-in, registration, tokens, credentials, MFA, profile, organizations, billing). Secrets are write-only. `runtime: \"http\"` (with `http_target` and an optional `signing_secret`) makes the Action call your own HTTPS endpoint, Standard Webhooks signed, instead of running code; a generated signing secret is returned once as `signing_secret`. `egress_allowlist` limits the hosts the Action's `api.http` calls may reach (`api.example.com` or `*.example.com`); empty means any public host. Needs the `actions:write` scope.",
 			Attrs: []genAttr{
 				{Name: "name", API: "name", Kind: "string", Desc: "The `name` field."},
 				{Name: "trigger", API: "trigger", Kind: "string", Immut: true, Desc: "The `trigger` field. Changing it forces replacement."},
@@ -748,11 +799,15 @@ func genResourceSpecs() []genSpec {
 				{Name: "runtime", API: "runtime", Kind: "string", Immut: true, Desc: "The `runtime` field. One of: `node`, `http`. Changing it forces replacement."},
 				{Name: "http_target", API: "http_target", Kind: "json", Desc: "The `http_target` field. A JSON document (use `jsonencode`)."},
 				{Name: "signing_secret", API: "signing_secret", Kind: "string", Desc: "The `signing_secret` field."},
+				{Name: "egress_allowlist", API: "egress_allowlist", Kind: "strlist", Desc: "The `egress_allowlist` field."},
 				{Name: "secret_names", API: "secret_names", Kind: "strlist", Comp: true, Sens: true, Desc: "The `secret_names` field. Returned once, on create."},
+				{Name: "current_version", API: "current_version", Kind: "int", Comp: true, Desc: "The version `code` holds; see GET /v1/actions/{id}/versions."},
+				{Name: "rollout", API: "rollout", Kind: "json", Comp: true, Desc: "A staged version running for a share of executions: its `version` and `percent`. null = none. A JSON document (use `jsonencode`)."},
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Created (epoch ms)."},
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/action_templates (create, list)
 		{
 			Type: "action_template", Kind: "coll", Item: "/v1/action_templates/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -786,6 +841,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "versions", API: "versions", Kind: "json", Comp: true, Desc: "The `versions` field. A JSON document (use `jsonencode`)."},
 			},
 		},
+		// /v1/flows (create, list)
 		{
 			Type: "flow", Kind: "coll", Item: "/v1/flows/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -799,12 +855,14 @@ func genResourceSpecs() []genSpec {
 				{Name: "enabled", API: "enabled", Kind: "bool", Desc: "The `enabled` field."},
 				{Name: "definition", API: "definition", Kind: "json", Req: true, Desc: "The `definition` field. A JSON document (use `jsonencode`)."},
 				{Name: "activate", API: "activate", Kind: "bool", WriteOnly: true, Desc: "Make the new version active (default true). Not returned by the API, so it is not detected as drift."},
+				{Name: "abandon_after_hours", API: "abandon_after_hours", Kind: "int", Desc: "Hours a started run may sit untouched before journey.abandoned is sent (null = 72)."},
 				{Name: "active_version", API: "active_version", Kind: "int", Comp: true, Desc: "The `active_version` field."},
 				{Name: "latest_version", API: "latest_version", Kind: "int", Comp: true, Desc: "The `latest_version` field."},
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "The `created_at` field. (epoch ms)"},
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "The `updated_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/feature_flags (create, list)
 		{
 			Type: "feature_flag", Kind: "coll", Item: "/v1/feature_flags/{id}", IDField: "key",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -822,6 +880,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "When the flag last changed (epoch ms)."},
 			},
 		},
+		// /v1/network_zones (create, list)
 		{
 			Type: "network_zone", Kind: "coll", Item: "/v1/network_zones/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -839,6 +898,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/network_acls (create, list)
 		{
 			Type: "network_acl", Kind: "coll", Item: "/v1/network_acls/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -857,6 +917,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/abac_policies (create, list)
 		{
 			Type: "abac_policy", Kind: "coll", Item: "/v1/abac_policies/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -874,6 +935,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/abac_templates (create, list)
 		{
 			Type: "abac_template", Kind: "coll", Item: "/v1/abac_templates/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -892,6 +954,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/abac_policy_links (create, list)
 		{
 			Type: "abac_policy_link", Kind: "coll", Item: "/v1/abac_policy_links/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -910,6 +973,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/abac_schema
 		{
 			Type: "abac_schema", Kind: "single", Item: "/v1/abac_schema", IDField: "id",
 			Write: "PUT", Update: "PUT", GetItem: true, Delete: true,
@@ -922,6 +986,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "policy_issues", API: "policy_issues", Kind: "json", Comp: true, Desc: "On a save: the errors this schema would give the policies and links already stored (the schema is saved anyway; they must be fixed before those are edited). A JSON document (use `jsonencode`)."},
 			},
 		},
+		// /v1/resource_types (create, list)
 		{
 			Type: "resource_type", Kind: "coll", Item: "/v1/resource_types/{id}", IDField: "key",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -938,6 +1003,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/org_role_grants (create, list)
 		{
 			Type: "org_role_grant", Kind: "coll", Item: "/v1/org_role_grants/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -952,6 +1018,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "revoked_at", API: "revoked_at", Kind: "int", Comp: true, Desc: "The `revoked_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/log_streams (create, list)
 		{
 			Type: "log_stream", Kind: "coll", Item: "/v1/log_streams/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -972,6 +1039,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/custom_oauth_providers (create, list)
 		{
 			Type: "custom_oauth_provider", Kind: "coll", Item: "/v1/custom_oauth_providers/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1021,6 +1089,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Updated (epoch ms)."},
 			},
 		},
+		// /v1/connectors (create, list)
 		{
 			Type: "connector", Kind: "coll", Item: "/v1/connectors/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1066,6 +1135,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/service_connectors (create, list)
 		{
 			Type: "service_connector", Kind: "coll", Item: "/v1/service_connectors/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1084,6 +1154,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Updated (epoch ms)."},
 			},
 		},
+		// /v1/org_ldap_connections (create, list)
 		{
 			Type: "org_ldap_connection", Kind: "coll", Item: "/v1/org_ldap_connections/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1107,6 +1178,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Updated (epoch ms)."},
 			},
 		},
+		// /v1/ldap_server_clients (create, list)
 		{
 			Type: "ldap_server_client", Kind: "coll", Item: "/v1/ldap_server_clients/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1128,6 +1200,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "secret", API: "secret", Kind: "string", Comp: true, Sens: true, Desc: "On create and rotate only: the bind password, shown once. Returned once, on create."},
 			},
 		},
+		// /v1/radius_clients (create, list)
 		{
 			Type: "radius_client", Kind: "coll", Item: "/v1/radius_clients/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1147,6 +1220,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/directory_pull_sources (create, list)
 		{
 			Type: "directory_pull_source", Kind: "coll", Item: "/v1/directory_pull_sources/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1168,6 +1242,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "The `updated_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/relay_agents (create, list)
 		{
 			Type: "relay_agent", Kind: "coll", Item: "/v1/relay_agents/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1188,6 +1263,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "token", API: "token", Kind: "string", Comp: true, Sens: true, Desc: "On create and rotate only: the agent token, shown once. Returned once, on create."},
 			},
 		},
+		// /v1/scim_tokens (create, list)
 		{
 			Type: "scim_token", Kind: "coll", Item: "/v1/scim_tokens/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: false, Delete: false,
@@ -1199,7 +1275,13 @@ func genResourceSpecs() []genSpec {
 				{Name: "connection_id", API: "connection_id", Kind: "string", Immut: true, Desc: "Optional — bind to an SSO connection. Changing it forces replacement."},
 				{Name: "scopes", API: "scopes", Kind: "strlist", Desc: "[\"read\"] makes a read-only token (list and fetch; every write is refused with 403). Omitted or null = read and write."},
 				{Name: "role_mappings", API: "role_mappings", Kind: "json", Desc: "Maps the SCIM user roles attribute, and SCIM group membership, to the member's organization role. roles: primary value first; a value that is itself a role key applies without a mapping. Groups: when a member joins or leaves a group (or a group is renamed or deleted), the first mapping, in this order, that names one of their groups by displayName or externalId sets the role, so list the most privileged first. Only members SCIM manages follow (seated by SCIM; not a role set through the API or dashboard, and never the organization's creator). A member whose roles or groups map to nothing keeps their role (org:member when first seated). A JSON document (use `jsonencode`)."},
+				{Name: "ip_allow_list", API: "ip_allow_list", Kind: "strlist", Desc: "Source IP addresses or CIDR ranges the token may be used from (at most 50). A request from any other address is refused exactly like an invalid token, and recorded in the organization's SCIM request log. null or [] clears the list: any address."},
+				{Name: "profile_lock", API: "profile_lock", Kind: "bool", Desc: "While true, the user attributes this directory owns (first_name, last_name, external_id) cannot be edited anywhere but the identity provider: a self-service profile edit, or a Backend API PATCH without the Atlas-Scim-Lock-Override: true header, is refused with 409 (reason scim_profile_locked). Off by default."},
 				{Name: "prefix", API: "prefix", Kind: "string", Comp: true, Desc: "Recognisable prefix; never the whole token."},
+				{Name: "rotated_at", API: "rotated_at", Kind: "int", Comp: true, Desc: "When a rotation replaced this token (epoch ms)."},
+				{Name: "rotated_from_id", API: "rotated_from_id", Kind: "string", Comp: true, Desc: "The `rotated_from_id` field."},
+				{Name: "rotated_from", API: "rotated_from", Kind: "json", Comp: true, Desc: "On rotate: the token this one replaces and when it stops working (epoch ms). A JSON document (use `jsonencode`)."},
+				{Name: "secret", API: "secret", Kind: "string", Comp: true, Sens: true, Desc: "The bearer token, returned ONCE, on create and rotate only. Store it now. Returned once, on create."},
 				{Name: "token", API: "token", Kind: "string", Comp: true, Sens: true, Desc: "The bearer token + SCIM base URL — returned ONCE, on create only. Store it now. Returned once, on create."},
 				{Name: "scim_base_url", API: "scim_base_url", Kind: "string", Comp: true, Desc: "On create: the SCIM 2.0 base URL to give the identity provider (on the instance's frontend API host), e.g. https://auth.example.com/scim/v2."},
 				{Name: "warnings", API: "warnings", Kind: "json", Comp: true, Desc: "On create: non-blocking notes. `no_sso_connection` = the organization has no SSO connection yet, so provisioned users cannot sign in through the IdP until one exists. A JSON document (use `jsonencode`)."},
@@ -1209,6 +1291,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Created (epoch ms)."},
 			},
 		},
+		// /v1/sso_onboarding_profiles (create, list)
 		{
 			Type: "sso_onboarding_profile", Kind: "coll", Item: "/v1/sso_onboarding_profiles/{id}", IDField: "id",
 			Write: "POST", Update: "", GetItem: true, Delete: true,
@@ -1220,12 +1303,13 @@ func genResourceSpecs() []genSpec {
 				{Name: "organization_id", API: "organization_id", Kind: "string", Desc: "The `organization_id` field."},
 				{Name: "company_name", API: "company_name", Kind: "string", Desc: "The `company_name` field."},
 				{Name: "allow_scim", API: "allow_scim", Kind: "bool", Desc: "The `allow_scim` field."},
-				{Name: "intents", API: "intents", Kind: "strlist", Desc: "The `intents` field. One of: `sso`, `directory_sync`, `domain_verification`, `log_stream`, `audit_log`, `certificate_renewal`, `api_keys`, `webhooks`."},
+				{Name: "intents", API: "intents", Kind: "strlist", Desc: "The `intents` field. One of: `sso`, `directory_sync`, `domain_verification`, `log_stream`, `audit_log`, `certificate_renewal`, `api_keys`, `webhooks`, `health`."},
 				{Name: "return_url", API: "return_url", Kind: "string", Desc: "The `return_url` field."},
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Created (epoch ms)."},
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/proxy_apps (create, list)
 		{
 			Type: "proxy_app", Kind: "coll", Item: "/v1/proxy_apps/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1245,6 +1329,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "The `updated_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/ssf/streams (create, list)
 		{
 			Type: "ssf_stream", Kind: "coll", Item: "/v1/ssf/streams/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1260,6 +1345,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "default_subjects", API: "default_subjects", Kind: "string", Immut: true, Desc: "The `default_subjects` field. One of: `ALL`, `NONE`. Changing it forces replacement."},
 			},
 		},
+		// /v1/ssf/receivers (create, list)
 		{
 			Type: "ssf_receiver", Kind: "coll", Item: "/v1/ssf/receivers/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: false, Delete: true,
@@ -1273,6 +1359,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "actions", API: "actions", Kind: "json", Desc: "The `actions` field. A JSON document (use `jsonencode`)."},
 			},
 		},
+		// /v1/fga/stores (create, list)
 		{
 			Type: "fga_store", Kind: "coll", Item: "/v1/fga/stores/{id}", IDField: "id",
 			Write: "POST", Update: "", GetItem: true, Delete: true,
@@ -1284,6 +1371,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/localizations (create, list)
 		{
 			Type: "localization", Kind: "coll", Item: "/v1/localizations/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1299,6 +1387,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "string", Comp: true, Volatile: true, Desc: "The `updated_at` field."},
 			},
 		},
+		// /v1/sms_templates (create, list)
 		{
 			Type: "sms_template", Kind: "coll", Item: "/v1/sms_templates/{id}", IDField: "name",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1313,6 +1402,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "variables", API: "variables", Kind: "strlist", Comp: true, Desc: "The `variables` field."},
 			},
 		},
+		// /v1/app_roles (create, list)
 		{
 			Type: "app_role", Kind: "coll", Item: "/v1/app_roles/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1328,6 +1418,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "The `updated_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/audit_event_schemas (create, list)
 		{
 			Type: "audit_event_schema", Kind: "coll", Item: "/v1/audit_event_schemas/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1344,6 +1435,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "The `created_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/analytics/alert_rules (create, list)
 		{
 			Type: "analytics_alert_rule", Kind: "coll", Item: "/v1/analytics/alert_rules/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1372,6 +1464,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "The `created_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/session_exchange_apps (create, list)
 		{
 			Type: "session_exchange_app", Kind: "coll", Item: "/v1/session_exchange_apps/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1385,11 +1478,12 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "The `updated_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/logout_notify_endpoints (create, list)
 		{
 			Type: "logout_notify_endpoint", Kind: "coll", Item: "/v1/logout_notify_endpoints/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
 			Pick: "", List: "", Match: "", DS: false, Init: "", Revoke: "", NoRead: false,
-			Desc: "Register a logout fan-out endpoint. It is POSTed `logout_token=<jwt>` (application/x-www-form-urlencoded; OIDC Back-Channel Logout: iss, sub, sid, events, signed with the instance JWKS) whenever an Atlas session ends, plus one with sub and no sid when the user is banned, deleted or deprovisioned. With oauth_client_id it follows one OAuth client instead (that client's sign-in ending, incl. /oauth2/session/end and grant revocation). Retried on network errors, 5xx, 408 and 429; redirects are not followed. The URL must be public https. Needs the `logout_notify_endpoints:write` scope.",
+			Desc: "Register a logout fan-out endpoint. It is POSTed `logout_token=<jwt>` (application/x-www-form-urlencoded; OIDC Back-Channel Logout, signed with the instance JWKS, header typ `logout+jwt`; claims iss, sub, aud, iat, exp (120 seconds after iat; receivers should require it), jti, events, and sid only when one session ends) whenever an Atlas session ends, plus one with sub and no sid when the user is banned, deleted or deprovisioned. With oauth_client_id it follows one OAuth client instead (that client's sign-in ending, incl. /oauth2/session/end and grant revocation). Retried on network errors, 5xx, 408 and 429; redirects are not followed. The URL must be public https. Needs the `logout_notify_endpoints:write` scope.",
 			Attrs: []genAttr{
 				{Name: "url", API: "url", Kind: "string", Req: true, Desc: "Public https endpoint."},
 				{Name: "oauth_client_id", API: "oauth_client_id", Kind: "string", Immut: true, Desc: "A client_id of this instance to follow; omit for instance-wide. Changing it forces replacement."},
@@ -1399,6 +1493,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "The `updated_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/lti_platforms (create, list)
 		{
 			Type: "lti_platform", Kind: "coll", Item: "/v1/lti_platforms/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
@@ -1415,6 +1510,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Last updated (epoch ms)."},
 			},
 		},
+		// /v1/oauth_clients/{id}/token_exchange_profiles (create, list)
 		{
 			Type: "oauth_client_token_exchange_profile", Kind: "coll", Item: "/v1/oauth_clients/{client_id}/token_exchange_profiles/{id}", IDField: "id",
 			Write: "POST", Update: "PATCH", GetItem: false, Delete: true,
@@ -1429,6 +1525,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "The `updated_at` field. (epoch ms)"},
 			},
 		},
+		// /v1/oauth_clients/{id}/trusted_issuers (create, list)
 		{
 			Type: "oauth_client_trusted_issuer", Kind: "coll", Item: "/v1/oauth_clients/{client_id}/trusted_issuers/{id}", IDField: "id",
 			Write: "POST", Update: "", GetItem: false, Delete: true,
@@ -1449,6 +1546,263 @@ func genResourceSpecs() []genSpec {
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Created (epoch ms)."},
 			},
 		},
+		// /v1/erasure_connectors (create, list)
+		{
+			Type: "erasure_connector", Kind: "coll", Item: "/v1/erasure_connectors/{id}", IDField: "id",
+			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
+			Pick: "", List: "", Match: "", DS: false, Init: "", Revoke: "", NoRead: false,
+			Desc: "Track a downstream system. Send catalog_id to take a catalog entry, or key and name for your own. mode ack (default): the system acknowledges through POST /v1/users/{id}/erasure_acks under ack_source. manual: an operator marks it done on each request. api: Atlas calls the vendor's deletion API (stripe, hubspot, mailchimp, segment, intercom, zendesk, brevo, customerio) with your own key (credential, sealed, never returned) for every address of the person when an erasure request is carried out; the result is recorded per request. 409 when the key exists. Honours Idempotency-Key. Needs the `data_subject_requests:write` scope.",
+			Attrs: []genAttr{
+				{Name: "key", API: "key", Kind: "string", Desc: "A slug (lowercase letters, digits, - and _). Defaults to the catalog id."},
+				{Name: "catalog_id", API: "catalog_id", Kind: "string", Desc: "An entry of GET /v1/erasure_connector_catalog; fills key and name."},
+				{Name: "name", API: "name", Kind: "string", Desc: "The `name` field."},
+				{Name: "mode", API: "mode", Kind: "string", Desc: "The `mode` field. One of: `ack`, `manual`, `api`."},
+				{Name: "vendor", API: "vendor", Kind: "string", Desc: "mode api: the vendor to call (defaults to the catalog id when that is one of these). One of: `stripe`, `hubspot`, `mailchimp`, `segment`, `intercom`, `zendesk`, `brevo`, `customerio`, `null`."},
+				{Name: "config", API: "config", Kind: "json", Desc: "mode api: the vendor's non-secret settings; see api_vendor.settings in the catalog. A JSON document (use `jsonencode`)."},
+				{Name: "credential", API: "credential", Kind: "string", Sens: true, WriteOnly: true, Desc: "mode api: your own key for the vendor. Sealed at rest and never returned; send it again to replace it. Write-only: sent to Atlas, never returned, and not detected as drift."},
+				{Name: "ack_source", API: "ack_source", Kind: "string", Desc: "The `source` the system uses when it acknowledges (defaults to key)."},
+				{Name: "enabled", API: "enabled", Kind: "bool", Desc: "The `enabled` field."},
+				{Name: "notes", API: "notes", Kind: "string", Desc: "The `notes` field."},
+				{Name: "has_credential", API: "has_credential", Kind: "bool", Comp: true, Desc: "Whether a vendor key is saved. The key itself is never returned."},
+				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Epoch ms."},
+				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Epoch ms."},
+			},
+		},
+		// /v1/oauth_publishers (create, list)
+		{
+			Type: "oauth_publisher", Kind: "coll", Item: "/v1/oauth_publishers/{id}", IDField: "id",
+			Write: "POST", Update: "PATCH", GetItem: true, Delete: true,
+			Pick: "", List: "", Match: "", DS: false, Init: "", Revoke: "", NoRead: false,
+			Desc: "Claim a publisher name for a domain. Returns the DNS TXT record (record_name and record_value) to publish; then call verify. Nothing changes for any app until the domain is verified and the app is attached. Audited as oauth_publisher.created; emits oauth_publisher.updated. Needs the `oauth_clients:write` scope.",
+			Attrs: []genAttr{
+				{Name: "name", API: "name", Kind: "string", Req: true, Desc: "Shown on the consent screen of every app of the publisher: \"Published by <name>\"."},
+				{Name: "domain", API: "domain", Kind: "string", Req: true, Immut: true, Desc: "The domain the publisher controls, for example example.com. Fixed at create. Changing it forces replacement."},
+				{Name: "shared_sector", API: "shared_sector", Kind: "bool", Desc: "Give every pairwise app of the publisher one sector (the domain), so a user has the same subject identifier in all of them. Needs a verified domain. Turning it on does not touch apps already attached; attaching a pairwise app sets its sector."},
+				{Name: "skip_consent", API: "skip_consent", Kind: "bool", Desc: "A user who already consented to another app of the publisher for the same scopes is not asked again. Only openid, email and profile are covered; every other scope is always asked."},
+				{Name: "verified", API: "verified", Kind: "bool", Comp: true, Desc: "True once the DNS TXT record was found. Only a verified publisher's name is shown and only a verified publisher shares a sector or skips consent."},
+				{Name: "verified_at", API: "verified_at", Kind: "int", Comp: true, Desc: "Epoch ms."},
+				{Name: "last_checked_at", API: "last_checked_at", Kind: "int", Comp: true, Volatile: true, Desc: "Epoch ms of the last verify call."},
+				{Name: "record_name", API: "record_name", Kind: "string", Comp: true, Desc: "The DNS name to publish the TXT record at."},
+				{Name: "record_value", API: "record_value", Kind: "string", Comp: true, Desc: "The TXT value to publish."},
+				{Name: "sector_identifier", API: "sector_identifier", Kind: "string", Comp: true, Desc: "The shared sector (the domain) when shared_sector is on and the domain is verified; otherwise null."},
+				{Name: "client_ids", API: "client_ids", Kind: "strlist", Comp: true, Desc: "The public client ids of the attached apps."},
+				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Epoch ms."},
+				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Epoch ms."},
+			},
+		},
+		// /v1/oauth_publishers/{id}/clients/{client_id}
+		{
+			Type: "oauth_publisher_client", Kind: "keyed", Item: "/v1/oauth_publishers/{publisher_id}/clients/{client_id}", IDField: "id",
+			Write: "PUT", Update: "PUT", GetItem: false, Delete: true,
+			Pick: "", List: "", Match: "", DS: false, Init: "", Revoke: "", NoRead: true,
+			Desc: "Attach an app (its public client_id) to a verified publisher. The app's homepage_url must be an https URL on the publisher's domain, and an app belongs to one publisher. With a shared sector the app must be pairwise and takes the publisher's sector; if it already has another sector, send allow_subject_change: true to confirm that users' subject identifiers in it change. Attaching an app already attached returns the publisher unchanged. Needs the `oauth_clients:write` scope.",
+			Attrs: []genAttr{
+				{Name: "publisher_id", API: "publisher_id", Kind: "string", Req: true, Param: true, Desc: "The publisher id this object belongs to. Changing it forces replacement."},
+				{Name: "client_id", API: "client_id", Kind: "string", Req: true, Param: true, Desc: "The client id this object belongs to. Changing it forces replacement."},
+				{Name: "allow_subject_change", API: "allow_subject_change", Kind: "bool", Desc: "Confirm that attaching a pairwise app that has another sector changes every user's subject identifier in it. Default false."},
+				{Name: "name", API: "name", Kind: "string", Comp: true, Desc: "Shown on the consent screen of every app of the publisher: \"Published by <name>\"."},
+				{Name: "domain", API: "domain", Kind: "string", Comp: true, Desc: "The domain the publisher controls, for example example.com. Fixed at create."},
+				{Name: "shared_sector", API: "shared_sector", Kind: "bool", Comp: true, Desc: "Give every pairwise app of the publisher one sector (the domain), so a user has the same subject identifier in all of them. Needs a verified domain. Turning it on does not touch apps already attached; attaching a pairwise app sets its sector."},
+				{Name: "skip_consent", API: "skip_consent", Kind: "bool", Comp: true, Desc: "A user who already consented to another app of the publisher for the same scopes is not asked again. Only openid, email and profile are covered; every other scope is always asked."},
+				{Name: "verified", API: "verified", Kind: "bool", Comp: true, Desc: "True once the DNS TXT record was found. Only a verified publisher's name is shown and only a verified publisher shares a sector or skips consent."},
+				{Name: "verified_at", API: "verified_at", Kind: "int", Comp: true, Desc: "Epoch ms."},
+				{Name: "last_checked_at", API: "last_checked_at", Kind: "int", Comp: true, Volatile: true, Desc: "Epoch ms of the last verify call."},
+				{Name: "record_name", API: "record_name", Kind: "string", Comp: true, Desc: "The DNS name to publish the TXT record at."},
+				{Name: "record_value", API: "record_value", Kind: "string", Comp: true, Desc: "The TXT value to publish."},
+				{Name: "sector_identifier", API: "sector_identifier", Kind: "string", Comp: true, Desc: "The shared sector (the domain) when shared_sector is on and the domain is verified; otherwise null."},
+				{Name: "client_ids", API: "client_ids", Kind: "strlist", Comp: true, Desc: "The public client ids of the attached apps."},
+				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Epoch ms."},
+				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Epoch ms."},
+			},
+		},
+		// /v1/connections/{id}/access_rules
+		{
+			Type: "connection_access_rules", Kind: "keyed", Item: "/v1/connections/{connection_id}/access_rules", IDField: "id",
+			Write: "PUT", Update: "PUT", GetItem: true, Delete: true,
+			Pick: "", List: "", Match: "", DS: false, Init: "", Revoke: "", NoRead: false,
+			Desc: "Replace the connection's access rules (at most 100; an empty list opens the connection again). Rules gate credential use: `read_token` (token reads and refreshes), `relay`, `run_actions` and `sign`; a key that no rule names gets 403 with reason `connection_access_denied`. Managing the connection and its rules stays under organizations:read and organizations:write. Needs the `organizations:write` scope.",
+			Attrs: []genAttr{
+				{Name: "connection_id", API: "connection_id", Kind: "string", Req: true, Param: true, Desc: "The connection id this object belongs to. Changing it forces replacement."},
+				{Name: "rules", API: "rules", Kind: "json", Req: true, Desc: "The `rules` field. A JSON document (use `jsonencode`)."},
+				{Name: "restricted", API: "restricted", Kind: "bool", Comp: true, Desc: "False while the connection has no rule: every key with the scope may use it."},
+			},
+		},
+		// /v1/instance/signing_key_schedule
+		{
+			Type: "signing_key_schedule", Kind: "single", Item: "/v1/instance/signing_key_schedule", IDField: "id",
+			Write: "PUT", Update: "PUT", GetItem: true, Delete: true,
+			Pick: "", List: "", Match: "", DS: false, Init: "", Revoke: "", NoRead: false,
+			Desc: "Rotate the instance signing key automatically. Every interval_days the worker publishes a new key (prepublish_hours before it signs), switches to it, and keeps the previous key published until every token it signed has expired: at least the longest token lifetime the instance uses plus the key set cache, never under 24 hours, and never dropped while one of its tokens can still be presented. Keys in a cloud KMS rotate at the scheduled time (they cannot be held back) and are limited to RS256 and ES256. An earlier rotation still inside its grace window postpones the next one. Needs a recent MFA sign-in. Needs the `instance:write` scope.",
+			Attrs: []genAttr{
+				{Name: "enabled", API: "enabled", Kind: "bool", Desc: "Default true."},
+				{Name: "interval_days", API: "interval_days", Kind: "int", Req: true, Desc: "The `interval_days` field."},
+				{Name: "alg", API: "alg", Kind: "string", Desc: "RS256, ES256, ES384, PS256 or EdDSA. Omit to keep the current algorithm."},
+				{Name: "grace_period_seconds", API: "grace_period_seconds", Kind: "int", Desc: "At least the instance minimum (see effective_grace_seconds)."},
+				{Name: "prepublish_hours", API: "prepublish_hours", Kind: "int", Desc: "Default 24."},
+				{Name: "effective_grace_seconds", API: "effective_grace_seconds", Kind: "int", Comp: true, Desc: "What the previous key is kept for in practice: never shorter than the longest token the instance signs lives (plus the key set cache), and never under 24 hours."},
+				{Name: "next_rotation_at", API: "next_rotation_at", Kind: "int", Comp: true, Volatile: true, Desc: "Epoch ms of the next rotation."},
+				{Name: "last_rotated_at", API: "last_rotated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Epoch ms of the last rotation the schedule made."},
+				{Name: "last_error", API: "last_error", Kind: "string", Comp: true, Volatile: true, Desc: "The `last_error` field."},
+				{Name: "last_error_at", API: "last_error_at", Kind: "int", Comp: true, Volatile: true, Desc: "Epoch ms of the last failed attempt."},
+			},
+		},
+		// /v1/audit/chain
+		{
+			Type: "audit_chain", Kind: "single", Item: "/v1/audit/chain", IDField: "id",
+			Write: "PUT", Update: "PUT", GetItem: true, Delete: false,
+			Pick: "", List: "", Match: "", DS: false, Init: "", Revoke: "", NoRead: false,
+			Desc: "The tamper-evident audit hash chain: turns it on and sets the checkpoint interval. Destroying the resource leaves the chain on, because the chain cannot be switched off without breaking verification of the rows already chained. Needs the `audit:write` scope.",
+			Attrs: []genAttr{
+				{Name: "enabled", API: "enabled", Kind: "bool", Req: true, Desc: "Must be true."},
+				{Name: "checkpoint_interval_seconds", API: "checkpoint_interval_seconds", Kind: "int", Desc: "Default 3600."},
+				{Name: "enabled_at", API: "enabled_at", Kind: "int", Comp: true, Desc: "Audit rows written before this are not chained. (epoch ms)"},
+				{Name: "head_seq", API: "head_seq", Kind: "int", Comp: true, Desc: "The sequence number of the newest link."},
+				{Name: "head_hash", API: "head_hash", Kind: "string", Comp: true, Desc: "The `head_hash` field."},
+				{Name: "genesis_hash", API: "genesis_hash", Kind: "string", Comp: true, Desc: "The value the first link chains from."},
+				{Name: "last_checkpoint_seq", API: "last_checkpoint_seq", Kind: "int", Comp: true, Volatile: true, Desc: "The `last_checkpoint_seq` field."},
+				{Name: "last_checkpoint_at", API: "last_checkpoint_at", Kind: "int", Comp: true, Volatile: true, Desc: "Epoch ms."},
+				{Name: "unchained_rows", API: "unchained_rows", Kind: "int", Comp: true, Desc: "Audit rows old enough to be chained that no link covers: 0 on a healthy chain."},
+				{Name: "algorithm", API: "algorithm", Kind: "json", Comp: true, Desc: "The tags the hashes use, for an independent verifier. A JSON document (use `jsonencode`)."},
+				{Name: "jwks_uri", API: "jwks_uri", Kind: "string", Comp: true, Desc: "Where the keys that sign checkpoints are published."},
+			},
+		},
+		// /v1/policies/{id}/audience
+		{
+			Type: "policy_audience", Kind: "keyed", Item: "/v1/policies/{policy_id}/audience", IDField: "id",
+			Write: "PUT", Update: "PUT", GetItem: true, Delete: false,
+			Pick: "", List: "", Match: "", DS: false, Init: "", Revoke: "", NoRead: false,
+			Desc: "Set a policy's audience. orgs asks only members of the listed organizations (1-200, all must exist) at their next sign-in, and never at sign-up; everyone (the default) clears the list. A user who is in none of the organizations is not asked and is not blocked. Needs the `instance:write` scope.",
+			Attrs: []genAttr{
+				{Name: "policy_id", API: "policy_id", Kind: "string", Req: true, Param: true, Desc: "The policy id this object belongs to. Changing it forces replacement."},
+				{Name: "audience", API: "audience", Kind: "string", Req: true, Desc: "The `audience` field. One of: `everyone`, `orgs`."},
+				{Name: "organization_ids", API: "organization_ids", Kind: "strlist", Desc: "The `organization_ids` field."},
+				{Name: "policy", API: "policy", Kind: "string", Comp: true, Desc: "The `policy` field."},
+			},
+		},
+		// /v1/policies/{id}/versions/{versionId}/translations/{locale}
+		{
+			Type: "policy_translation", Kind: "keyed", Item: "/v1/policies/{policy_id}/versions/{version_id}/translations/{locale}", IDField: "id",
+			Write: "PUT", Update: "PUT", GetItem: false, Delete: true,
+			Pick: "", List: "/v1/policies/{policy_id}/versions/{version_id}/translations", Match: "locale", DS: false, Init: "", Revoke: "", NoRead: false,
+			Desc: "Add or replace the text of a version in one language (content_markdown or content_html, sanitised like the version itself). GET /v1/client/policies?locale= then serves it, and an acceptance records the hash of the text that was shown. A published version can gain languages but a language already there cannot change (409); a draft can change freely. 400 for an external policy. Needs the `instance:write` scope.",
+			Attrs: []genAttr{
+				{Name: "policy_id", API: "policy_id", Kind: "string", Req: true, Param: true, Desc: "The policy id this object belongs to. Changing it forces replacement."},
+				{Name: "version_id", API: "version_id", Kind: "string", Req: true, Param: true, Desc: "The version id this object belongs to. Changing it forces replacement."},
+				{Name: "locale", API: "locale", Kind: "string", Req: true, Param: true, Desc: "The locale this object belongs to. Changing it forces replacement."},
+				{Name: "title", API: "title", Kind: "string", Desc: "The `title` field."},
+				{Name: "content_markdown", API: "content_markdown", Kind: "string", Desc: "The `content_markdown` field."},
+				{Name: "content_html", API: "content_html", Kind: "string", Desc: "The `content_html` field."},
+				{Name: "policy", API: "policy", Kind: "string", Comp: true, Desc: "The `policy` field."},
+				{Name: "version", API: "version", Kind: "string", Comp: true, Desc: "The `version` field."},
+				{Name: "content_sha256", API: "content_sha256", Kind: "string", Comp: true, Desc: "The `content_sha256` field."},
+				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Epoch ms."},
+				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Epoch ms."},
+			},
+		},
+		// /v1/referral_reward_rules
+		{
+			Type: "referral_reward_rules", Kind: "single", Item: "/v1/referral_reward_rules", IDField: "id",
+			Write: "PUT", Update: "PUT", GetItem: true, Delete: false,
+			Pick: "", List: "", Match: "", DS: false, Init: "", Revoke: "", NoRead: false,
+			Desc: "Replace the referral reward terms (a field you leave out returns to its default). At least one of `referrer_amount` and `referee_amount` must be above zero to turn rewards on. Rewards are credits on the billing credit ledger; they are created only for referrals Atlas has attributed and not flagged, once the trigger is met, and are granted after `hold_days`. Needs the `billing:write` scope.",
+			Attrs: []genAttr{
+				{Name: "enabled", API: "enabled", Kind: "bool", Desc: "The `enabled` field."},
+				{Name: "trigger", API: "trigger", Kind: "string", Desc: "`signup`: the referral is attributed. `first_payment`: the referee's first paid invoice."},
+				{Name: "referrer_amount", API: "referrer_amount", Kind: "int", Desc: "Credit for the referrer, minor units."},
+				{Name: "referee_amount", API: "referee_amount", Kind: "int", Desc: "Credit for the referee, minor units."},
+				{Name: "currency", API: "currency", Kind: "string", Desc: "The `currency` field."},
+				{Name: "hold_days", API: "hold_days", Kind: "int", Desc: "Days a reward waits before it is granted."},
+				{Name: "max_rewards_per_referrer", API: "max_rewards_per_referrer", Kind: "int", Desc: "Cap on rewards for one referrer; null = no cap."},
+				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Volatile: true, Desc: "The `updated_at` field. (epoch ms)"},
+			},
+		},
+		// /v1/region
+		{
+			Type: "region", Kind: "single", Item: "/v1/region", IDField: "id",
+			Write: "PUT", Update: "PUT", GetItem: true, Delete: false,
+			Pick: "", List: "", Match: "", DS: false, Init: "", Revoke: "", NoRead: false,
+			Desc: "Data residency for the instance: the pinned serving region, the failover region and FAPI isolation. Destroying the resource leaves the setting in place. Needs the `instance:write` scope.",
+			Attrs: []genAttr{
+				{Name: "pin", API: "pin", Kind: "bool", Desc: "true pins the instance to the region of the stack answering. false is refused."},
+				{Name: "failover_region", API: "failover_region", Kind: "string", Desc: "A region id from the region table, different from the instance's own; null clears it. The instance must be pinned."},
+				{Name: "fapi_isolation", API: "fapi_isolation", Kind: "string", Desc: "null follows the deployment default. One of: `off`, `enforce`, `null`."},
+				{Name: "region", API: "region", Kind: "string", Comp: true, Desc: "The region the instance is pinned to, or null when unpinned."},
+				{Name: "pinned", API: "pinned", Kind: "bool", Comp: true, Desc: "The `pinned` field."},
+				{Name: "serving_region", API: "serving_region", Kind: "string", Comp: true, Desc: "The region of the stack that answered. Null on a single-region deployment."},
+				{Name: "regions_enabled", API: "regions_enabled", Kind: "bool", Comp: true, Desc: "Whether this deployment runs with regions. When false nothing is pinned or checked."},
+				{Name: "effective_fapi_isolation", API: "effective_fapi_isolation", Kind: "string", Comp: true, Desc: "What applies now: when `enforce`, publishable-key requests are served only on the instance's own Frontend API host. One of: `off`, `enforce`."},
+				{Name: "regions", API: "regions", Kind: "json", Comp: true, Desc: "The `regions` field. A JSON document (use `jsonencode`)."},
+			},
+		},
+		// /v1/instance/config_snapshots (create, list)
+		{
+			Type: "config_snapshot", Kind: "coll", Item: "/v1/instance/config_snapshots/{id}", IDField: "id",
+			Write: "POST", Update: "", GetItem: true, Delete: true,
+			Pick: "", List: "", Match: "", DS: false, Init: "", Revoke: "", NoRead: false,
+			Desc: "Save the instance's configuration as it is now, with an optional label. Secrets are removed from the copy (their paths are listed in redacted_paths). The worker also saves a snapshot automatically after configuration changes, so you can go back to a state you never named. Needs instance:write. Honours Idempotency-Key. Audited. Needs the `instance:write` scope.",
+			Attrs: []genAttr{
+				{Name: "label", API: "label", Kind: "string", Desc: "The `label` field."},
+				{Name: "version", API: "version", Kind: "int", Comp: true, Desc: "1, 2, 3 ... per instance."},
+				{Name: "source", API: "source", Kind: "string", Comp: true, Desc: "The `source` field. One of: `manual`, `auto`, `pre_restore`, `cli`, `clone`."},
+				{Name: "sha256", API: "sha256", Kind: "string", Comp: true, Desc: "Digest of the stored configuration and origins; two snapshots with the same digest are identical."},
+				{Name: "redacted_paths", API: "redacted_paths", Kind: "strlist", Comp: true, Desc: "Where a secret was removed."},
+				{Name: "created_by", API: "created_by", Kind: "string", Comp: true, Desc: "The `created_by` field."},
+				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Epoch ms."},
+				{Name: "auth_config", API: "auth_config", Kind: "json", Comp: true, Desc: "The configuration (only on the single-snapshot read). A JSON document (use `jsonencode`)."},
+				{Name: "allowed_origins", API: "allowed_origins", Kind: "strlist", Comp: true, Desc: "The allowed origins (only on the single-snapshot read)."},
+			},
+		},
+		// /v1/billing/connect/accounts (create, list)
+		{
+			Type: "billing_connect_account", Kind: "coll", Item: "/v1/billing/connect/accounts/{id}", IDField: "id",
+			Write: "POST", Update: "", GetItem: true, Delete: false,
+			Pick: "", List: "", Match: "", DS: false, Init: "", Revoke: "", NoRead: false,
+			Desc: "Create the Stripe Connect (Express) account a user or organization is paid out to, on YOUR Stripe account. One account per subject: a second call returns it (200). Idempotent on `idempotency_key`. Send the person to a link from `POST /v1/billing/connect/accounts/{id}/onboarding_link` to finish Stripe's onboarding. Needs the `billing:write` scope.",
+			Attrs: []genAttr{
+				{Name: "subject_type", API: "subject_type", Kind: "string", Req: true, Desc: "The `subject_type` field. One of: `user`, `org`."},
+				{Name: "subject_id", API: "subject_id", Kind: "string", Req: true, Desc: "The `subject_id` field."},
+				{Name: "email", API: "email", Kind: "string", WriteOnly: true, Desc: "Prefills the Stripe onboarding. Not returned by the API, so it is not detected as drift."},
+				{Name: "country", API: "country", Kind: "string", Desc: "Two-letter ISO country, upper case. It cannot be changed later."},
+				{Name: "idempotency_key", API: "idempotency_key", Kind: "string", Req: true, WriteOnly: true, Desc: "The `idempotency_key` field. Not returned by the API, so it is not detected as drift."},
+				{Name: "provider_account_id", API: "provider_account_id", Kind: "string", Comp: true, Desc: "The Stripe account id (acct_...)."},
+				{Name: "details_submitted", API: "details_submitted", Kind: "bool", Comp: true, Desc: "The `details_submitted` field."},
+				{Name: "charges_enabled", API: "charges_enabled", Kind: "bool", Comp: true, Desc: "The `charges_enabled` field."},
+				{Name: "payouts_enabled", API: "payouts_enabled", Kind: "bool", Comp: true, Desc: "True once Stripe accepts transfers to the account."},
+				{Name: "requirements_due", API: "requirements_due", Kind: "strlist", Comp: true, Desc: "What Stripe still needs from the account holder."},
+				{Name: "refreshed_at", API: "refreshed_at", Kind: "int", Comp: true, Desc: "The `refreshed_at` field. (epoch ms)"},
+				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Epoch milliseconds. (epoch ms)"},
+			},
+		},
+		// /v1/agent_delegations (create, list)
+		{
+			Type: "agent_delegation", Kind: "coll", Item: "/v1/agent_delegations/{id}", IDField: "id",
+			Write: "POST", Update: "", GetItem: true, Delete: false,
+			Pick: "", List: "", Match: "", DS: false, Init: "", Revoke: "/revoke", NoRead: false,
+			Desc: "Delegate authority to an agent. A root delegation (delegator_user_id) lets the agent act for that user; a child (parent_delegation_id) lets an agent pass part of what it holds to a sub-agent. A child can only narrow its parent: its scopes must be a subset, its lifetime ends no later, and the chain is limited by the instance's maxDelegationDepth. Loops are refused. The agent's tokens then carry delegation and act claims, are narrowed to the delegated scopes, and stop verifying when the delegation is revoked. Needs a recent MFA sign-in. Honours Idempotency-Key. Needs the `machines:write` scope.",
+			Attrs: []genAttr{
+				{Name: "child_machine_id", API: "child_machine_id", Kind: "string", Req: true, Desc: "The `child_machine_id` field."},
+				{Name: "delegator_user_id", API: "delegator_user_id", Kind: "string", Desc: "For a root delegation."},
+				{Name: "parent_delegation_id", API: "parent_delegation_id", Kind: "string", Desc: "For a child delegation."},
+				{Name: "scopes", API: "scopes", Kind: "strlist", Req: true, Desc: "The `scopes` field."},
+				{Name: "resource", API: "resource", Kind: "string", Desc: "A resource server identifier."},
+				{Name: "expires_in_seconds", API: "expires_in_seconds", Kind: "int", WriteOnly: true, Desc: "The `expires_in_seconds` field. Not returned by the API, so it is not detected as drift."},
+				{Name: "expires_at", API: "expires_at", Kind: "string", Desc: "ISO 8601 or epoch ms, within 30 days. Default: the instance's defaultDelegationTtlSeconds."},
+				{Name: "organization_id", API: "organization_id", Kind: "string", Desc: "The `organization_id` field."},
+				{Name: "root_delegation_id", API: "root_delegation_id", Kind: "string", Comp: true, Desc: "The `root_delegation_id` field."},
+				{Name: "parent_machine_id", API: "parent_machine_id", Kind: "string", Comp: true, Desc: "The agent that delegated (null for a delegation from a user)."},
+				{Name: "depth", API: "depth", Kind: "int", Comp: true, Desc: "The `depth` field."},
+				{Name: "status", API: "status", Kind: "string", Comp: true, Volatile: true, Desc: "The `status` field. One of: `active`, `revoked`."},
+				{Name: "revoked_at", API: "revoked_at", Kind: "int", Comp: true, Desc: "Epoch ms."},
+				{Name: "revoked_by", API: "revoked_by", Kind: "string", Comp: true, Desc: "The `revoked_by` field."},
+				{Name: "revoked_reason", API: "revoked_reason", Kind: "string", Comp: true, Desc: "The `revoked_reason` field."},
+				{Name: "posture", API: "posture", Kind: "json", Comp: true, Desc: "The delegator's posture when the root delegation was made (mfa_at, risk, device). A JSON document (use `jsonencode`)."},
+				{Name: "last_decision", API: "last_decision", Kind: "string", Comp: true, Volatile: true, Desc: "The `last_decision` field. One of: `allow`, `deny`, `revoked`, `null`."},
+				{Name: "last_evaluated_at", API: "last_evaluated_at", Kind: "int", Comp: true, Volatile: true, Desc: "Epoch ms."},
+				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Epoch ms."},
+				{Name: "evaluations", API: "evaluations", Kind: "json", Comp: true, Desc: "The `evaluations` field. A JSON document (use `jsonencode`)."},
+			},
+		},
+		// /v1/users/{id}
 		{
 			Type: "user", Kind: "dataonly", Item: "/v1/users/{id}", IDField: "id",
 			Write: "", Update: "", GetItem: true, Delete: false,
@@ -1456,6 +1810,7 @@ func genResourceSpecs() []genSpec {
 			Desc: "A user in the instance, looked up by id. Needs the `users:read` scope.",
 			Attrs: []genAttr{
 				{Name: "username", API: "username", Kind: "string", Comp: true, Desc: "The `username` field."},
+				{Name: "sign_in", API: "sign_in", Kind: "bool", Comp: true, Desc: "false for a link-only account added with POST /v1/users/{id}/external_accounts: it is shown and delivered but can never sign anyone in."},
 				{Name: "first_name", API: "first_name", Kind: "string", Comp: true, Desc: "The `first_name` field."},
 				{Name: "last_name", API: "last_name", Kind: "string", Comp: true, Desc: "The `last_name` field."},
 				{Name: "image_url", API: "image_url", Kind: "string", Comp: true, Desc: "The `image_url` field."},
@@ -1466,6 +1821,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "password_enabled", API: "password_enabled", Kind: "bool", Comp: true, Sens: true, Desc: "Whether the account has a usable password (never the hash)."},
 				{Name: "public_metadata", API: "public_metadata", Kind: "json", Comp: true, Desc: "The `public_metadata` field. A JSON document (use `jsonencode`)."},
 				{Name: "mfa_enabled", API: "mfa_enabled", Kind: "bool", Comp: true, Desc: "The `mfa_enabled` field."},
+				{Name: "has_passkey", API: "has_passkey", Kind: "bool", Comp: true, Desc: "Whether the user holds at least one passkey."},
 				{Name: "required_factors", API: "required_factors", Kind: "strlist", Comp: true, Desc: "Factor classes this user must always use (POL-04); empty = none."},
 				{Name: "is_anonymous", API: "is_anonymous", Kind: "bool", Comp: true, Desc: "Whether this identity is still an anonymous guest."},
 				{Name: "banned", API: "banned", Kind: "bool", Comp: true, Desc: "The `banned` field."},
@@ -1475,6 +1831,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "status", API: "status", Kind: "string", Comp: true, Desc: "One account state, the same value as the ID token's account_status: banned (an active ban; deactivation by SCIM, directory sync or a workflow is a ban), suspended (a lock, suspension directive or sign-in lockout is in force), else active."},
 				{Name: "deleted_at", API: "deleted_at", Kind: "int", Comp: true, Desc: "Epoch-ms; non-null once soft-deleted."},
 				{Name: "last_sign_in_at", API: "last_sign_in_at", Kind: "int", Comp: true, Desc: "Epoch-ms."},
+				{Name: "sessions_revoked_at", API: "sessions_revoked_at", Kind: "int", Comp: true, Desc: "Epoch-ms when ALL of the user's sessions last ended together (BAPI revoke-all, dashboard revoke-all, sign out everywhere, a password change or reset that revokes all, a ban or lock, a compromise signal); null = never. Treat any token issued before it as ended. Also the `user.sessions_revoked` event."},
 				{Name: "created_at", API: "created_at", Kind: "int", Comp: true, Desc: "Created (epoch ms)."},
 				{Name: "updated_at", API: "updated_at", Kind: "int", Comp: true, Desc: "Last updated (epoch ms)."},
 				{Name: "version", API: "version", Kind: "int", Comp: true, Desc: "Strictly increases with every change to the user. Webhook payloads carry the same value: apply an update only if its version is higher than the one you hold."},
@@ -1485,6 +1842,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "external_accounts", API: "external_accounts", Kind: "json", Comp: true, Desc: "Every linked provider identity, however it was linked (a sign-in, a connect flow, identities on create, a bulk import or identities/import); the same set GET /v1/users/{id}/identities lists. Present on read, list, create, update and password responses. A JSON document (use `jsonencode`)."},
 			},
 		},
+		// /v1/organizations/{id}
 		{
 			Type: "organization", Kind: "dataonly", Item: "/v1/organizations/{id}", IDField: "id",
 			Write: "", Update: "", GetItem: true, Delete: false,
@@ -1508,6 +1866,7 @@ func genResourceSpecs() []genSpec {
 				{Name: "sso", API: "sso", Kind: "json", Comp: true, Desc: "The organization's enterprise sign-in setup. A JSON document (use `jsonencode`)."},
 			},
 		},
+		// /v1/sso_connections/{id}
 		{
 			Type: "sso_connection", Kind: "dataonly", Item: "/v1/sso_connections/{id}", IDField: "id",
 			Write: "", Update: "", GetItem: true, Delete: false,
@@ -1532,7 +1891,10 @@ func genResourceSpecs() []genSpec {
 				{Name: "saml_idp_slo_response_url", API: "saml_idp_slo_response_url", Kind: "string", Comp: true, Desc: "The `saml_idp_slo_response_url` field."},
 				{Name: "saml_idp_slo_binding", API: "saml_idp_slo_binding", Kind: "string", Comp: true, Desc: "The `saml_idp_slo_binding` field. One of: `redirect`, `post`."},
 				{Name: "saml_idp_slo_soap_url", API: "saml_idp_slo_soap_url", Kind: "string", Comp: true, Desc: "The `saml_idp_slo_soap_url` field."},
+				{Name: "saml_artifact_resolution_url", API: "saml_artifact_resolution_url", Kind: "string", Comp: true, Desc: "The `saml_artifact_resolution_url` field."},
+				{Name: "saml_artifact_mtls", API: "saml_artifact_mtls", Kind: "bool", Comp: true, Desc: "The `saml_artifact_mtls` field."},
 				{Name: "saml_require_encrypted_assertions", API: "saml_require_encrypted_assertions", Kind: "bool", Comp: true, Desc: "The `saml_require_encrypted_assertions` field."},
+				{Name: "saml_honor_idp_session_lifetime", API: "saml_honor_idp_session_lifetime", Kind: "bool", Comp: true, Desc: "The `saml_honor_idp_session_lifetime` field."},
 				{Name: "require_consent_screen", API: "require_consent_screen", Kind: "bool", Comp: true, Desc: "The `require_consent_screen` field."},
 				{Name: "saml_acs_path", API: "saml_acs_path", Kind: "string", Comp: true, Desc: "The custom ACS path, or null for the standard one."},
 				{Name: "github_access", API: "github_access", Kind: "json", Comp: true, Desc: "The GitHub organization / team allowlist, or null for an ordinary OIDC connection. A JSON document (use `jsonencode`)."},
@@ -1548,9 +1910,11 @@ func genResourceSpecs() []genSpec {
 				{Name: "provisioning_mode", API: "provisioning_mode", Kind: "string", Comp: true, Desc: "The `provisioning_mode` field. One of: `member`, `end_user`."},
 				{Name: "attribute_mapping", API: "attribute_mapping", Kind: "json", Comp: true, Desc: "The configured field mapping (only the set keys). A JSON document (use `jsonencode`)."},
 				{Name: "oidc_scopes", API: "oidc_scopes", Kind: "strlist", Comp: true, Desc: "The `oidc_scopes` field."},
+				{Name: "rerole_on_sign_in", API: "rerole_on_sign_in", Kind: "bool", Comp: true, Desc: "Whether later sign-ins also re-role members with no recorded role source when claims map elsewhere."},
 				{Name: "profile_mapping", API: "profile_mapping", Kind: "json", Comp: true, Desc: "Declarative profile mapping from the upstream userinfo / id_token claims to Atlas user fields and metadata. Unmapped fields keep the provider defaults. A remapped `email` is unverified unless `email_verified` is mapped too. null clears it. A JSON document (use `jsonencode`)."},
 				{Name: "token_endpoint_auth_method", API: "token_endpoint_auth_method", Kind: "string", Comp: true, Desc: "How Atlas authenticates to the upstream token endpoint. private_key_jwt signs a client assertion with an Atlas-held key published at client_jwks_uri. One of: `client_secret_basic`, `client_secret_post`, `client_secret_jwt`, `private_key_jwt`, `none`."},
 				{Name: "client_assertion_audience", API: "client_assertion_audience", Kind: "string", Comp: true, Desc: "The `client_assertion_audience` field."},
+				{Name: "oidc_max_age_seconds", API: "oidc_max_age_seconds", Kind: "int", Comp: true, Desc: "Ask the identity provider for a sign-in no older than this many seconds (`max_age`), and refuse an id_token whose `auth_time` is older. 0 forces a fresh login. null: not set."},
 				{Name: "logout", API: "logout", Kind: "json", Comp: true, Desc: "Upstream logout. OpenID Connect providers only. A JSON document (use `jsonencode`)."},
 				{Name: "idp_initiated_login", API: "idp_initiated_login", Kind: "json", Comp: true, Desc: "OIDC third-party initiated login at initiate_login_uri. OpenID Connect providers only. A JSON document (use `jsonencode`)."},
 				{Name: "upstream_urls", API: "upstream_urls", Kind: "json", Comp: true, Desc: "OIDC connections: the URLs to register at the IdP. A JSON document (use `jsonencode`)."},

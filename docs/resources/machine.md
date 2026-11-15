@@ -31,8 +31,10 @@ resource "atlas_machine" "example" {
 - `effective_status` (String) Derived status: 'active' only when the machine is active AND its owner is usable; 'owner_suspended' when active but the owner is not; otherwise the raw status.
 - `device_key` (String) The stable device self-identifier supplied at enrolment (null when none). Lets a fleet manager correlate this record with the device it re-enrolled across tokens.
 - `public_key_jkt` (String) RFC 7638 thumbprint of the device public key.
+- `token_binding` (String, Sensitive) The sender constraint every token this machine mints must carry: none (a plain bearer token), dpop (a DPoP proof, token bound with cnf.jkt), mtls (a client certificate, bound with cnf x5t#S256) or any. A proof or certificate sent under none still binds the token. Returned once, on create.
 - `metadata` (String, JSON) Device metadata (hostname, os, app_version, last_seen_at). A JSON document (use `jsonencode`).
 - `enrolled_at` (Number) When the device completed enrolment (epoch ms).
+- `last_token_at` (Number) When the machine last minted a token (epoch ms; null = never).
 - `created_at` (Number) Created (epoch ms).
 - `updated_at` (Number) Updated (epoch ms).
 - `secret` (String, Sensitive) Reveal-once mk_ secret (create/rotate-only). Returned once, on create.

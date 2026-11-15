@@ -11,6 +11,7 @@ Backend API: `POST /v1/machines/{id}/grants` (create); `GET /v1/machines/{id}/gr
 ```hcl
 resource "atlas_machine_grant" "example" {
   machine_id = "tf-machine-grant"
+  resource_server_id = "tf-machine-grant"
 }
 ```
 
@@ -19,16 +20,20 @@ resource "atlas_machine_grant" "example" {
 ### Required
 
 - `machine_id` (String) The machine id this object belongs to. Changing it forces replacement.
+- `resource_server_id` (String) The `resource_server_id` field.
 
 ### Optional
 
-- `resource_server_id` (String) The `resource_server_id` field.
 - `scopes` (List of String) The `scopes` field.
 - `scope_presets` (List of String) The `scope_presets` field. Not returned by the API, so it is not detected as drift.
+- `constraints` (String, JSON) Limits carried in the machine token's `constraints` claim (a JSON object of at most 2 KB). A JSON document (use `jsonencode`).
+- `expires_in_seconds` (Number) The `expires_in_seconds` field. Not returned by the API, so it is not detected as drift.
+- `expires_at` (String) Alternative to `expires_in_seconds`, not both. ISO 8601 or epoch ms, as text.
 
 ### Read-Only
 
 - `id` (String) Atlas object id.
+- `expired` (Boolean) True once `expires_at` has passed. An expired grant mints nothing and is dropped from verify results.
 - `created_at` (Number) Created (epoch ms).
 - `updated_at` (Number) Last updated (epoch ms).
 

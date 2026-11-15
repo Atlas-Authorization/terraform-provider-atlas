@@ -38,7 +38,10 @@ data "atlas_sso_connection" "example" {
 - `saml_idp_slo_response_url` (String) The `saml_idp_slo_response_url` field.
 - `saml_idp_slo_binding` (String) The `saml_idp_slo_binding` field. One of: `redirect`, `post`.
 - `saml_idp_slo_soap_url` (String) The `saml_idp_slo_soap_url` field.
+- `saml_artifact_resolution_url` (String) The `saml_artifact_resolution_url` field.
+- `saml_artifact_mtls` (Boolean) The `saml_artifact_mtls` field.
 - `saml_require_encrypted_assertions` (Boolean) The `saml_require_encrypted_assertions` field.
+- `saml_honor_idp_session_lifetime` (Boolean) The `saml_honor_idp_session_lifetime` field.
 - `require_consent_screen` (Boolean) The `require_consent_screen` field.
 - `saml_acs_path` (String) The custom ACS path, or null for the standard one.
 - `github_access` (String, JSON) The GitHub organization / team allowlist, or null for an ordinary OIDC connection. A JSON document (use `jsonencode`).
@@ -54,9 +57,11 @@ data "atlas_sso_connection" "example" {
 - `provisioning_mode` (String) The `provisioning_mode` field. One of: `member`, `end_user`.
 - `attribute_mapping` (String, JSON) The configured field mapping (only the set keys). A JSON document (use `jsonencode`).
 - `oidc_scopes` (List of String) The `oidc_scopes` field.
+- `rerole_on_sign_in` (Boolean) Whether later sign-ins also re-role members with no recorded role source when claims map elsewhere.
 - `profile_mapping` (String, JSON) Declarative profile mapping from the upstream userinfo / id_token claims to Atlas user fields and metadata. Unmapped fields keep the provider defaults. A remapped `email` is unverified unless `email_verified` is mapped too. null clears it. A JSON document (use `jsonencode`).
 - `token_endpoint_auth_method` (String) How Atlas authenticates to the upstream token endpoint. private_key_jwt signs a client assertion with an Atlas-held key published at client_jwks_uri. One of: `client_secret_basic`, `client_secret_post`, `client_secret_jwt`, `private_key_jwt`, `none`.
 - `client_assertion_audience` (String) The `client_assertion_audience` field.
+- `oidc_max_age_seconds` (Number) Ask the identity provider for a sign-in no older than this many seconds (`max_age`), and refuse an id_token whose `auth_time` is older. 0 forces a fresh login. null: not set.
 - `logout` (String, JSON) Upstream logout. OpenID Connect providers only. A JSON document (use `jsonencode`).
 - `idp_initiated_login` (String, JSON) OIDC third-party initiated login at initiate_login_uri. OpenID Connect providers only. A JSON document (use `jsonencode`).
 - `upstream_urls` (String, JSON) OIDC connections: the URLs to register at the IdP. A JSON document (use `jsonencode`).

@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/atlas/terraform-provider-atlas/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -43,7 +44,8 @@ import (
 type genAttr struct {
 	// Name is the Terraform attribute name; API is the JSON key (snake_case).
 	Name, API string
-	// Kind is string | bool | int | float | strlist | json.
+	// Kind is string | bool | int | float | strlist | json | timestamp (a string
+	// holding ISO 8601 or epoch ms, for an API field that takes integer or string).
 	Kind string
 	// Req: required in config. Comp: response-only (computed). Sens: Sensitive.
 	// WriteOnly: sent to the API, never read back. Immut: change forces
@@ -276,8 +278,27 @@ func (a genAttr) fromModel(ctx context.Context, g attrGetter, diags *diag.Diagno
 		if v.IsNull() || v.IsUnknown() {
 			return nil, false
 		}
+		if a.Kind == "timestamp" {
+			if ms, err := strconv.ParseInt(strings.TrimSpace(v.ValueString()), 10, 64); err == nil {
+				return ms, true // epoch ms goes as a number; anything else as given
+			}
+		}
 		return v.ValueString(), true
 	}
+}
+
+// timestampMS reads an ISO 8601 or epoch-ms text as epoch milliseconds.
+func timestampMS(s string) (int64, bool) {
+	s = strings.TrimSpace(s)
+	if ms, err := strconv.ParseInt(s, 10, 64); err == nil {
+		return ms, true
+	}
+	for _, layout := range []string{time.RFC3339Nano, "2006-01-02T15:04:05", "2006-01-02"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t.UnixMilli(), true
+		}
+	}
+	return 0, false
 }
 
 func isJSONNull(raw json.RawMessage) bool {
@@ -348,6 +369,18 @@ func (a genAttr) toState(ctx context.Context, st *tfsdk.State, raw json.RawMessa
 		var s string
 		if json.Unmarshal(raw, &s) != nil {
 			s = strings.TrimSpace(string(raw))
+		}
+		if a.Kind == "timestamp" {
+			// keep the configured spelling while it names the same instant, so a plan shows no diff
+			var prior types.String
+			diags.Append(st.GetAttribute(ctx, p, &prior)...)
+			if !prior.IsNull() && !prior.IsUnknown() {
+				pm, ok1 := timestampMS(prior.ValueString())
+				sm, ok2 := timestampMS(s)
+				if ok1 && ok2 && pm == sm {
+					return
+				}
+			}
 		}
 		diags.Append(st.SetAttribute(ctx, p, types.StringValue(s))...)
 	}

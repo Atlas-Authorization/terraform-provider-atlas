@@ -23,7 +23,7 @@ resource "atlas_sso_onboarding_profile" "example" {
 - `organization_id` (String) The `organization_id` field.
 - `company_name` (String) The `company_name` field.
 - `allow_scim` (Boolean) The `allow_scim` field.
-- `intents` (List of String) The `intents` field. One of: `sso`, `directory_sync`, `domain_verification`, `log_stream`, `audit_log`, `certificate_renewal`, `api_keys`, `webhooks`.
+- `intents` (List of String) The `intents` field. One of: `sso`, `directory_sync`, `domain_verification`, `log_stream`, `audit_log`, `certificate_renewal`, `api_keys`, `webhooks`, `health`.
 - `return_url` (String) The `return_url` field.
 
 ### Read-Only

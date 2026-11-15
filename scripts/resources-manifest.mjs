@@ -111,6 +111,21 @@ export const manifest = [
   { t: 'oauth_client_token_exchange_profile', item: '/v1/oauth_clients/{id}/token_exchange_profiles/{profileId}', params: { id: 'client_id' } },
   { t: 'oauth_client_trusted_issuer', item: '/v1/oauth_clients/{id}/trusted_issuers/{issuerId}', params: { id: 'client_id' }, update: '' },
 
+  // ── Surface wave: governance, privacy, keys, region, referrals ──────────────
+  { t: 'erasure_connector', item: '/v1/erasure_connectors/{id}' },
+  { t: 'oauth_publisher', item: '/v1/oauth_publishers/{id}' },
+  { t: 'oauth_publisher_client', kind: 'keyed', item: '/v1/oauth_publishers/{id}/clients/{client_id}', params: { id: 'publisher_id', client_id: 'client_id' }, noRead: true, echo: true },
+  { t: 'connection_access_rules', kind: 'keyed', item: '/v1/connections/{id}/access_rules', params: { id: 'connection_id' } },
+  { t: 'signing_key_schedule', kind: 'single', item: '/v1/instance/signing_key_schedule' },
+  { t: 'audit_chain', kind: 'single', item: '/v1/audit/chain', noDelete: true, desc: 'The tamper-evident audit hash chain: turns it on and sets the checkpoint interval. Destroying the resource leaves the chain on, because the chain cannot be switched off without breaking verification of the rows already chained.' },
+  { t: 'policy_audience', kind: 'keyed', item: '/v1/policies/{id}/audience', params: { id: 'policy_id' }, noDelete: true },
+  { t: 'policy_translation', kind: 'keyed', item: '/v1/policies/{id}/versions/{versionId}/translations/{locale}', params: { id: 'policy_id', versionId: 'version_id', locale: 'locale' }, list: '/v1/policies/{id}/versions/{versionId}/translations', match: 'locale' },
+  { t: 'referral_reward_rules', kind: 'single', item: '/v1/referral_reward_rules', noDelete: true },
+  { t: 'region', kind: 'single', item: '/v1/region', noDelete: true, echo: true, example: '  pin = true', desc: 'Data residency for the instance: the pinned serving region, the failover region and FAPI isolation. Destroying the resource leaves the setting in place.' },
+  { t: 'config_snapshot', item: '/v1/instance/config_snapshots/{id}', update: '' },
+  { t: 'billing_connect_account', item: '/v1/billing/connect/accounts/{id}', update: '', noDelete: true },
+  { t: 'agent_delegation', item: '/v1/agent_delegations/{id}', update: '', revoke: '/revoke' },
+
   // ── Data sources ─────────────────────────────────────────────────────────────
   { t: 'user', kind: 'dataonly', item: '/v1/users/{id}', desc: 'A user in the instance, looked up by id.' },
   { t: 'organization', kind: 'dataonly', item: '/v1/organizations/{id}', desc: 'An organization in the instance, looked up by id.' },
