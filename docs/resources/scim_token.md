@@ -26,11 +26,17 @@ resource "atlas_scim_token" "example" {
 - `connection_id` (String) Optional — bind to an SSO connection. Changing it forces replacement.
 - `scopes` (List of String) ["read"] makes a read-only token (list and fetch; every write is refused with 403). Omitted or null = read and write.
 - `role_mappings` (String, JSON) Maps the SCIM user roles attribute, and SCIM group membership, to the member's organization role. roles: primary value first; a value that is itself a role key applies without a mapping. Groups: when a member joins or leaves a group (or a group is renamed or deleted), the first mapping, in this order, that names one of their groups by displayName or externalId sets the role, so list the most privileged first. Only members SCIM manages follow (seated by SCIM; not a role set through the API or dashboard, and never the organization's creator). A member whose roles or groups map to nothing keeps their role (org:member when first seated). A JSON document (use `jsonencode`).
+- `ip_allow_list` (List of String) Source IP addresses or CIDR ranges the token may be used from (at most 50). A request from any other address is refused exactly like an invalid token, and recorded in the organization's SCIM request log. null or [] clears the list: any address.
+- `profile_lock` (Boolean) While true, the user attributes this directory owns (first_name, last_name, external_id) cannot be edited anywhere but the identity provider: a self-service profile edit, or a Backend API PATCH without the Atlas-Scim-Lock-Override: true header, is refused with 409 (reason scim_profile_locked). Off by default.
 
 ### Read-Only
 
 - `id` (String) Atlas object id.
 - `prefix` (String) Recognisable prefix; never the whole token.
+- `rotated_at` (Number) When a rotation replaced this token (epoch ms).
+- `rotated_from_id` (String) The `rotated_from_id` field.
+- `rotated_from` (String, JSON) On rotate: the token this one replaces and when it stops working (epoch ms). A JSON document (use `jsonencode`).
+- `secret` (String, Sensitive) The bearer token, returned ONCE, on create and rotate only. Store it now. Returned once, on create.
 - `token` (String, Sensitive) The bearer token + SCIM base URL — returned ONCE, on create only. Store it now. Returned once, on create.
 - `scim_base_url` (String) On create: the SCIM 2.0 base URL to give the identity provider (on the instance's frontend API host), e.g. https://auth.example.com/scim/v2.
 - `warnings` (String, JSON) On create: non-blocking notes. `no_sso_connection` = the organization has no SSO connection yet, so provisioned users cannot sign in through the IdP until one exists. A JSON document (use `jsonencode`).

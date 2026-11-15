@@ -193,6 +193,19 @@ environment.
 | [`atlas_lti_platform`](resources/lti_platform.md) | Register an LTI 1.3 platform (issuer, client_id, auth_login_url, jwks_uri, deployment_ids). |
 | [`atlas_oauth_client_token_exchange_profile`](resources/oauth_client_token_exchange_profile.md) | Register a custom subject_token_type (a urn: or https URI that is not a standard Atlas or IETF token type) for a confidential client. |
 | [`atlas_oauth_client_trusted_issuer`](resources/oauth_client_trusted_issuer.md) | Trust an external issuer for this client. |
+| [`atlas_erasure_connector`](resources/erasure_connector.md) | Track a downstream system. |
+| [`atlas_oauth_publisher`](resources/oauth_publisher.md) | Claim a publisher name for a domain. |
+| [`atlas_oauth_publisher_client`](resources/oauth_publisher_client.md) | Attach an app (its public client_id) to a verified publisher. |
+| [`atlas_connection_access_rules`](resources/connection_access_rules.md) | Replace the connection's access rules (at most 100; an empty list opens the connection again). |
+| [`atlas_signing_key_schedule`](resources/signing_key_schedule.md) | Rotate the instance signing key automatically. |
+| [`atlas_audit_chain`](resources/audit_chain.md) | The tamper-evident audit hash chain: turns it on and sets the checkpoint interval. |
+| [`atlas_policy_audience`](resources/policy_audience.md) | Set a policy's audience. |
+| [`atlas_policy_translation`](resources/policy_translation.md) | Add or replace the text of a version in one language (content_markdown or content_html, sanitised like the version itself). |
+| [`atlas_referral_reward_rules`](resources/referral_reward_rules.md) | Replace the referral reward terms (a field you leave out returns to its default). |
+| [`atlas_region`](resources/region.md) | Data residency for the instance: the pinned serving region, the failover region and FAPI isolation. |
+| [`atlas_config_snapshot`](resources/config_snapshot.md) | Save the instance's configuration as it is now, with an optional label. |
+| [`atlas_billing_connect_account`](resources/billing_connect_account.md) | Create the Stripe Connect (Express) account a user or organization is paid out to, on YOUR Stripe account. |
+| [`atlas_agent_delegation`](resources/agent_delegation.md) | Delegate authority to an agent. |
 
 ### More data sources
 

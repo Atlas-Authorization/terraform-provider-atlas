@@ -44,6 +44,7 @@ const kindOf = (x) => {
   if (x.oneOf || x.anyOf) {
     const alts = (x.oneOf || x.anyOf).map(deref).filter((a) => typeOf(a) !== 'null');
     if (alts.length === 1) return kindOf(alts[0]);
+    if (alts.map(typeOf).sort().join() === 'integer,string') return 'timestamp';
     return 'json';
   }
   const t = typeOf(x);
@@ -57,6 +58,7 @@ const kindOf = (x) => {
     if (typeOf(it) === 'string') return 'strlist';
     return 'json';
   }
+  if (Array.isArray(x.type) && x.type.filter((v) => v !== 'null').sort().join() === 'integer,string') return 'timestamp';
   if (Array.isArray(x.type) && x.type.filter((v) => v !== 'null').length > 1) return 'json';
   return 'json';
 };
@@ -84,6 +86,7 @@ function describe(name, sch, extra = '') {
   const en = enumOf(sch);
   if (en && !d.includes(en[0])) d += ' One of: ' + en.map((e) => '`' + e + '`').join(', ') + '.';
   if (typeOf(sch) === 'integer' && /_at$/.test(name) && !/epoch|ms/.test(d)) d += ' (epoch ms)';
+  if (kindOf(sch) === 'timestamp') d += ' ISO 8601 or epoch ms, as text.';
   if (kindOf(sch) === 'json') d += ' A JSON document (use `jsonencode`).';
   return (d + ' ' + extra).trim();
 }
@@ -257,7 +260,8 @@ func genResourceSpecs() []genSpec {
 	return []genSpec{
 `;
 for (const s of specs) {
-  goSrc += `		{
+  goSrc += `		// ${s.collOas ? s.collOas + ' (create, list)' : s.itemOas}
+		{
 			Type: ${go(s.t)}, Kind: ${go(s.kind)}, Item: ${go(s.itemGo)}, IDField: ${go(s.idField)},
 			Write: ${go(s.write)}, Update: ${go(s.updated ? s.update : '')}, GetItem: ${b(s.getItem)}, Delete: ${b(s.del)},
 			Pick: ${go(s.pick)}, List: ${go(s.listGo || '')}, Match: ${go(s.match || '')}, DS: ${b(s.ds)}, Init: ${go(s.init)}, Revoke: ${go(s.revoke)}, NoRead: ${b(s.noRead)},
@@ -284,6 +288,7 @@ const sample = (a, s) => {
   if (a.kind === 'int') return '1';
   if (a.kind === 'float') return '1';
   if (a.kind === 'strlist') return '["example"]';
+  if (a.kind === 'timestamp') return '"2030-01-01T00:00:00Z"';
   if (a.kind === 'json') return 'jsonencode({})';
   if (/url|uri|endpoint|issuer|host/.test(a.api)) return '"https://example.com/' + a.api + '"';
   if (/email/.test(a.api)) return '"user@example.com"';
@@ -316,7 +321,7 @@ data "atlas_${s.t}" "example" {
 
 ### Read-Only
 
-${s.attrs.map((a) => `- \`${a.name}\` (${{ string: 'String', bool: 'Boolean', int: 'Number', float: 'Number', strlist: 'List of String', json: 'String, JSON' }[a.kind]}${a.sens ? ', Sensitive' : ''}) ${a.desc}`).join('\n')}
+${s.attrs.map((a) => `- \`${a.name}\` (${{ string: 'String', bool: 'Boolean', int: 'Number', float: 'Number', strlist: 'List of String', json: 'String, JSON', timestamp: 'String' }[a.kind]}${a.sens ? ', Sensitive' : ''}) ${a.desc}`).join('\n')}
 `);
     fs.mkdirSync(`examples/data-sources/atlas_${s.t}`, { recursive: true });
     fs.writeFileSync(`examples/data-sources/atlas_${s.t}/data-source.tf`, `data "atlas_${s.t}" "example" {\n  id = "<id>"\n}\n`);
@@ -331,7 +336,7 @@ ${s.attrs.map((a) => `- \`${a.name}\` (${{ string: 'String', bool: 'Boolean', in
   examples[s.t] = hcl;
   fs.mkdirSync(`examples/resources/atlas_${s.t}`, { recursive: true });
   fs.writeFileSync(`examples/resources/atlas_${s.t}/resource.tf`, `# ${s.desc.split('. ')[0].replace(/\.$/, '')}.\n` + hcl);
-  const line = (a) => `- \`${a.name}\` (${{ string: 'String', bool: 'Boolean', int: 'Number', float: 'Number', strlist: 'List of String', json: 'String, JSON' }[a.kind]}${a.sens ? ', Sensitive' : ''}) ${a.desc}`;
+  const line = (a) => `- \`${a.name}\` (${{ string: 'String', bool: 'Boolean', int: 'Number', float: 'Number', strlist: 'List of String', json: 'String, JSON', timestamp: 'String' }[a.kind]}${a.sens ? ', Sensitive' : ''}) ${a.desc}`;
   const importDoc = (() => {
     const ps = s.attrs.filter((a) => a.param).map((a) => `<${a.name}>`);
     if (s.kind === 'single') return 'Import with any id; the object is read from the singleton path.\n\n```sh\nterraform import atlas_' + s.t + '.example ' + s.t + '\n```';

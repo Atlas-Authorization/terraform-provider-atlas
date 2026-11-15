@@ -29,6 +29,7 @@ resource "atlas_connection_action" "example" {
 ### Optional
 
 - `input` (String, JSON) JSON Schema (type object) of the input. A JSON document (use `jsonencode`). Not returned by the API, so it is not detected as drift.
+- `output` (String, JSON) JSON Schema of what the action returns (after response.path). Published as types and checked against every successful answer. A JSON document (use `jsonencode`). Not returned by the API, so it is not detected as drift.
 - `response` (String, JSON) The `response` field. A JSON document (use `jsonencode`). Not returned by the API, so it is not detected as drift.
 - `scopes` (List of String) The `scopes` field.
 - `paginate` (String, JSON) The `paginate` field. A JSON document (use `jsonencode`). Not returned by the API, so it is not detected as drift.
@@ -37,6 +38,7 @@ resource "atlas_connection_action" "example" {
 ### Read-Only
 
 - `id` (String) Atlas object id.
+- `output_schema` (String, JSON) JSON Schema of what the action returns (after its response path), or null when it declares none. Every successful answer is checked against it; a mismatch is a provider change on the radar and never fails the call. A JSON document (use `jsonencode`).
 
 ## Import
 

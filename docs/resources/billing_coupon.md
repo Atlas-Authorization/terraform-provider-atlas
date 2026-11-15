@@ -26,9 +26,9 @@ resource "atlas_billing_coupon" "example" {
 - `duration` (String) The `duration` field. One of: `once`, `repeating`, `forever`. Changing it forces replacement.
 - `duration_months` (Number) The `duration_months` field. Changing it forces replacement.
 - `max_redemptions` (Number) The `max_redemptions` field.
-- `expires_at` (Number) The `expires_at` field. (epoch ms) Changing it forces replacement.
-- `plan_ids` (List of String) The `plan_ids` field. Changing it forces replacement.
-- `first_time_only` (Boolean) The `first_time_only` field. Changing it forces replacement.
+- `expires_at` (Number) The `expires_at` field. (epoch ms)
+- `plan_ids` (List of String) The `plan_ids` field.
+- `first_time_only` (Boolean) The `first_time_only` field.
 - `provider_value` (String) The `provider` field. Not returned by the API, so it is not detected as drift. Changing it forces replacement.
 
 ### Read-Only

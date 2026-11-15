@@ -181,6 +181,7 @@ var genExampleConfigs = map[string]string{
 `,
 	"machine_grant": `resource "atlas_machine_grant" "example" {
   machine_id = "tf-machine-grant"
+  resource_server_id = "tf-machine-grant"
 }
 `,
 	"organization_machine_membership": `resource "atlas_organization_machine_membership" "example" {
@@ -352,6 +353,67 @@ var genExampleConfigs = map[string]string{
 	"oauth_client_trusted_issuer": `resource "atlas_oauth_client_trusted_issuer" "example" {
   client_id = "tf-oauth-client-trusted-issuer"
   issuer = "https://example.com/issuer"
+}
+`,
+	"erasure_connector": `resource "atlas_erasure_connector" "example" {
+
+}
+`,
+	"oauth_publisher": `resource "atlas_oauth_publisher" "example" {
+  name = "tf-oauth-publisher"
+  domain = "tf-oauth-publisher"
+}
+`,
+	"oauth_publisher_client": `resource "atlas_oauth_publisher_client" "example" {
+  publisher_id = "tf-oauth-publisher-client"
+  client_id = "tf-oauth-publisher-client"
+}
+`,
+	"connection_access_rules": `resource "atlas_connection_access_rules" "example" {
+  connection_id = "tf-connection-access-rules"
+  rules = jsonencode({})
+}
+`,
+	"signing_key_schedule": `resource "atlas_signing_key_schedule" "example" {
+  interval_days = 1
+}
+`,
+	"audit_chain": `resource "atlas_audit_chain" "example" {
+  enabled = true
+}
+`,
+	"policy_audience": `resource "atlas_policy_audience" "example" {
+  policy_id = "tf-policy-audience"
+  audience = "everyone"
+}
+`,
+	"policy_translation": `resource "atlas_policy_translation" "example" {
+  policy_id = "tf-policy-translation"
+  version_id = "tf-policy-translation"
+  locale = "tf-policy-translation"
+}
+`,
+	"referral_reward_rules": `resource "atlas_referral_reward_rules" "example" {
+
+}
+`,
+	"region": `resource "atlas_region" "example" {
+  pin = true
+}
+`,
+	"config_snapshot": `resource "atlas_config_snapshot" "example" {
+
+}
+`,
+	"billing_connect_account": `resource "atlas_billing_connect_account" "example" {
+  subject_type = "user"
+  subject_id = "tf-billing-connect-account"
+  idempotency_key = "tf-billing-connect-account"
+}
+`,
+	"agent_delegation": `resource "atlas_agent_delegation" "example" {
+  child_machine_id = "tf-agent-delegation"
+  scopes = ["example"]
 }
 `,
 }

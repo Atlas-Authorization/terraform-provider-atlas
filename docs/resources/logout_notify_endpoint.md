@@ -1,6 +1,6 @@
 # atlas_logout_notify_endpoint
 
-Register a logout fan-out endpoint. It is POSTed `logout_token=<jwt>` (application/x-www-form-urlencoded; OIDC Back-Channel Logout: iss, sub, sid, events, signed with the instance JWKS) whenever an Atlas session ends, plus one with sub and no sid when the user is banned, deleted or deprovisioned. With oauth_client_id it follows one OAuth client instead (that client's sign-in ending, incl. /oauth2/session/end and grant revocation). Retried on network errors, 5xx, 408 and 429; redirects are not followed. The URL must be public https.
+Register a logout fan-out endpoint. It is POSTed `logout_token=<jwt>` (application/x-www-form-urlencoded; OIDC Back-Channel Logout, signed with the instance JWKS, header typ `logout+jwt`; claims iss, sub, aud, iat, exp (120 seconds after iat; receivers should require it), jti, events, and sid only when one session ends) whenever an Atlas session ends, plus one with sub and no sid when the user is banned, deleted or deprovisioned. With oauth_client_id it follows one OAuth client instead (that client's sign-in ending, incl. /oauth2/session/end and grant revocation). Retried on network errors, 5xx, 408 and 429; redirects are not followed. The URL must be public https.
 
 Scopes: `logout_notify_endpoints:read` to read, `logout_notify_endpoints:write` to write.
 

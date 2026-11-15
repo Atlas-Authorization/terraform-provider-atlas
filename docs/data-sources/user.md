@@ -21,6 +21,7 @@ data "atlas_user" "example" {
 ### Read-Only
 
 - `username` (String) The `username` field.
+- `sign_in` (Boolean) false for a link-only account added with POST /v1/users/{id}/external_accounts: it is shown and delivered but can never sign anyone in.
 - `first_name` (String) The `first_name` field.
 - `last_name` (String) The `last_name` field.
 - `image_url` (String) The `image_url` field.
@@ -31,6 +32,7 @@ data "atlas_user" "example" {
 - `password_enabled` (Boolean, Sensitive) Whether the account has a usable password (never the hash).
 - `public_metadata` (String, JSON) The `public_metadata` field. A JSON document (use `jsonencode`).
 - `mfa_enabled` (Boolean) The `mfa_enabled` field.
+- `has_passkey` (Boolean) Whether the user holds at least one passkey.
 - `required_factors` (List of String) Factor classes this user must always use (POL-04); empty = none.
 - `is_anonymous` (Boolean) Whether this identity is still an anonymous guest.
 - `banned` (Boolean) The `banned` field.
@@ -40,6 +42,7 @@ data "atlas_user" "example" {
 - `status` (String) One account state, the same value as the ID token's account_status: banned (an active ban; deactivation by SCIM, directory sync or a workflow is a ban), suspended (a lock, suspension directive or sign-in lockout is in force), else active.
 - `deleted_at` (Number) Epoch-ms; non-null once soft-deleted.
 - `last_sign_in_at` (Number) Epoch-ms.
+- `sessions_revoked_at` (Number) Epoch-ms when ALL of the user's sessions last ended together (BAPI revoke-all, dashboard revoke-all, sign out everywhere, a password change or reset that revokes all, a ban or lock, a compromise signal); null = never. Treat any token issued before it as ended. Also the `user.sessions_revoked` event.
 - `created_at` (Number) Created (epoch ms).
 - `updated_at` (Number) Last updated (epoch ms).
 - `version` (Number) Strictly increases with every change to the user. Webhook payloads carry the same value: apply an update only if its version is higher than the one you hold.

@@ -1,6 +1,6 @@
 # atlas_action
 
-Create an Action for a trigger (see the Actions guide for the 22 triggers: sign-in, registration, tokens, credentials, MFA, profile, organizations, billing). Secrets are write-only. `runtime: "http"` (with `http_target` and an optional `signing_secret`) makes the Action call your own HTTPS endpoint, Standard Webhooks signed, instead of running code; a generated signing secret is returned once as `signing_secret`.
+Create an Action for a trigger (see the Actions guide for the 22 triggers: sign-in, registration, tokens, credentials, MFA, profile, organizations, billing). Secrets are write-only. `runtime: "http"` (with `http_target` and an optional `signing_secret`) makes the Action call your own HTTPS endpoint, Standard Webhooks signed, instead of running code; a generated signing secret is returned once as `signing_secret`. `egress_allowlist` limits the hosts the Action's `api.http` calls may reach (`api.example.com` or `*.example.com`); empty means any public host.
 
 Scopes: `actions:read` to read, `actions:write` to write.
 
@@ -26,11 +26,14 @@ resource "atlas_action" "example" {
 - `runtime` (String) The `runtime` field. One of: `node`, `http`. Changing it forces replacement.
 - `http_target` (String, JSON) The `http_target` field. A JSON document (use `jsonencode`).
 - `signing_secret` (String) The `signing_secret` field.
+- `egress_allowlist` (List of String) The `egress_allowlist` field.
 
 ### Read-Only
 
 - `id` (String) Atlas object id.
 - `secret_names` (List of String, Sensitive) The `secret_names` field. Returned once, on create.
+- `current_version` (Number) The version `code` holds; see GET /v1/actions/{id}/versions.
+- `rollout` (String, JSON) A staged version running for a share of executions: its `version` and `percent`. null = none. A JSON document (use `jsonencode`).
 - `created_at` (Number) Created (epoch ms).
 - `updated_at` (Number) Last updated (epoch ms).
 
