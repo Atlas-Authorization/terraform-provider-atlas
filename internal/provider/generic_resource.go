@@ -90,6 +90,9 @@ type genSpec struct {
 	List, Match string
 	// NoRead: the API has no read route for the object, so refresh keeps state.
 	NoRead bool
+	// Create is a path suffix appended to the collection path for the create call
+	// only (for example /enrolments, when a new object is made by an enrolment).
+	Create string
 	Attrs  []genAttr
 }
 
@@ -452,7 +455,7 @@ func fillPath(tpl string, vals map[string]string) string {
 }
 
 func (s *genSpec) collPath(vals map[string]string) string {
-	return fillPath(strings.TrimSuffix(s.Item, "/{id}"), vals)
+	return fillPath(strings.TrimSuffix(s.Item, "/{id}"), vals) + s.Create
 }
 
 // paramVals collects the path-key attributes (and id, when non-empty).

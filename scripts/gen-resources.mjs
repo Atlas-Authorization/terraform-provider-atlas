@@ -133,7 +133,7 @@ for (const m of manifest) {
   // operations
   let writeM, writeOp, updM, updOp;
   if (kind === 'coll') {
-    writeM = m.write || 'post'; writeOp = coll[writeM];
+    writeM = m.write || 'post'; writeOp = (m.create ? oas.paths[collOas + m.create] : coll)?.[writeM];
     updM = m.update === undefined ? (item.patch ? 'patch' : item.put ? 'put' : '') : m.update;
     updOp = updM ? item[updM] : undefined;
   } else {
@@ -239,7 +239,7 @@ for (const m of manifest) {
   specs.push({
     t: m.t, kind, itemGo, itemOas, collOas, listGo, match, idField: m.idField || (kind === 'coll' && idVar && idVar !== 'id' && /^(key|email|name)$/.test(idVar) ? idVar : 'id'),
     write: writeM.toUpperCase(), update: kind === 'coll' ? updM.toUpperCase() : (m.update === '' ? '' : writeM.toUpperCase()),
-    getItem, del, pick: m.pick || '', ds: !!m.ds, init: m.init || '', revoke: m.revoke || '', noRead: !!m.noRead,
+    getItem, del, pick: m.pick || '', ds: !!m.ds, init: m.init || '', revoke: m.revoke || '', noRead: !!m.noRead, create: m.create || '',
     desc: clean(m.desc || summary), scope, scopeRead: (item.get || coll?.get)?.['x-required-scope'],
     attrs, m, parentVars, paramName,
     updated: !!updM,
@@ -260,11 +260,11 @@ func genResourceSpecs() []genSpec {
 	return []genSpec{
 `;
 for (const s of specs) {
-  goSrc += `		// ${s.collOas ? s.collOas + ' (create, list)' : s.itemOas}
+  goSrc += `		// ${s.collOas ? (s.create ? s.collOas + s.create + ' (create), ' + s.collOas + ' (list)' : s.collOas + ' (create, list)') : s.itemOas}
 		{
 			Type: ${go(s.t)}, Kind: ${go(s.kind)}, Item: ${go(s.itemGo)}, IDField: ${go(s.idField)},
 			Write: ${go(s.write)}, Update: ${go(s.updated ? s.update : '')}, GetItem: ${b(s.getItem)}, Delete: ${b(s.del)},
-			Pick: ${go(s.pick)}, List: ${go(s.listGo || '')}, Match: ${go(s.match || '')}, DS: ${b(s.ds)}, Init: ${go(s.init)}, Revoke: ${go(s.revoke)}, NoRead: ${b(s.noRead)},
+			Pick: ${go(s.pick)}, List: ${go(s.listGo || '')}, Match: ${go(s.match || '')}, DS: ${b(s.ds)}, Init: ${go(s.init)}, Revoke: ${go(s.revoke)}, NoRead: ${b(s.noRead)},${s.create ? ' Create: ' + go(s.create) + ',' : ''}
 			Desc: ${go(s.desc + (s.scope ? ' Needs the \`' + s.scope + '\` scope.' : ''))},
 			Attrs: []genAttr{
 `;

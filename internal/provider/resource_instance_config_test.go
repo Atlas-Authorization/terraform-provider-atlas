@@ -28,6 +28,33 @@ func nativeAppsAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"apple_app_ids": types.ListType{ElemType: types.StringType},
 		"android_apps":  types.ListType{ElemType: types.ObjectType{AttrTypes: androidAppAttrTypes()}},
+		"unregistered":  types.StringType,
+		"unregistered_session": types.ObjectType{AttrTypes: map[string]attr.Type{
+			"absolute_ms": types.Int64Type,
+			"require_mfa": types.BoolType,
+		}},
+	}
+}
+
+// TestNativeAppsToJSONUnregistered covers the device-bound session policy keys.
+func TestNativeAppsToJSONUnregistered(t *testing.T) {
+	ctx := context.Background()
+	sessTypes := nativeAppsAttrTypes()["unregistered_session"].(types.ObjectType).AttrTypes
+	sess, _ := types.ObjectValue(sessTypes, map[string]attr.Value{
+		"absolute_ms": types.Int64Value(86400000),
+		"require_mfa": types.BoolValue(true),
+	})
+	obj, _ := types.ObjectValue(nativeAppsAttrTypes(), map[string]attr.Value{
+		"apple_app_ids":        types.ListNull(types.StringType),
+		"android_apps":         types.ListNull(types.ObjectType{AttrTypes: androidAppAttrTypes()}),
+		"unregistered":         types.StringValue("device_bound"),
+		"unregistered_session": sess,
+	})
+	var diags diag.Diagnostics
+	got, _ := json.Marshal(nativeAppsToJSON(ctx, obj, &diags))
+	want := `{"unregistered":"device_bound","unregisteredSession":{"absoluteMs":86400000,"requireMfa":true}}`
+	if diags.HasError() || string(got) != want {
+		t.Errorf("got %s (%v), want %s", got, diags, want)
 	}
 }
 
@@ -126,6 +153,8 @@ func TestNativeAppsToJSON(t *testing.T) {
 	obj, _ := types.ObjectValue(nativeAppsAttrTypes(), map[string]attr.Value{
 		"apple_app_ids": appleIDs,
 		"android_apps":  androidList,
+		"unregistered":         types.StringNull(),
+		"unregistered_session": types.ObjectNull(nativeAppsAttrTypes()["unregistered_session"].(types.ObjectType).AttrTypes),
 	})
 
 	var diags diag.Diagnostics

@@ -416,4 +416,178 @@ var genExampleConfigs = map[string]string{
   scopes = ["example"]
 }
 `,
+	"native_app": `resource "atlas_native_app" "example" {
+  platform      = "ios"
+  bundle_id     = "com.example.app"
+  team_id       = "ABCDE12345"
+  callback_urls = ["com.example.app://auth/callback"]
+}
+`,
+	"native_app_publishable_key": `resource "atlas_native_app_publishable_key" "example" {
+  app_ids = ["nativeApp_example"]
+}
+`,
+	"before_first_session_hook": `resource "atlas_before_first_session_hook" "example" {
+  enabled        = true
+  url            = "https://example.com/hooks/first-session"
+  signing_secret = var.hook_signing_secret
+}
+`,
+	"permission_alias": `resource "atlas_permission_alias" "example" {
+  alias          = "billing:view"
+  permission_key = "invoices:read"
+}
+`,
+	"pca_approvals_settings": `resource "atlas_pca_approvals_settings" "example" {
+  channels = jsonencode(["email"])
+}
+`,
+	"pca_principal": `resource "atlas_pca_principal" "example" {
+  principal_pub = "<base64url Ed25519 public key>"
+  subject_type  = "user"
+  subject_id    = "user_123"
+}
+`,
+	"pca_action_source": `resource "atlas_pca_action_source" "example" {
+  ns       = "billing"
+  from     = "openapi"
+  url      = "https://example.com/openapi.json"
+  schedule = "daily"
+}
+`,
+	"pca_action_publisher_key": `resource "atlas_pca_action_publisher_key" "example" {
+  kid          = "acme-publisher-1"
+  pk           = "<base64url Ed25519 public key>"
+  display_name = "Acme publisher"
+}
+`,
+	"pca_action_namespace_pin": `resource "atlas_pca_action_namespace_pin" "example" {
+  ns      = "billing"
+  version = "1.4.0"
+}
+`,
+	"pca_action_reviewer": `resource "atlas_pca_action_reviewer" "example" {
+  display_name = "Security reviewer"
+  email        = "reviewer@example.com"
+}
+`,
+	"pca_approver": `resource "atlas_pca_approver" "example" {
+  approver_id = "pcaapp_example"
+  quorum      = 1
+}
+`,
+	"pca_approver_member": `resource "atlas_pca_approver_member" "example" {
+  approver_id = "pcaapp_example"
+  member_id   = "pcamem_example"
+  channels    = ["email"]
+}
+`,
+	"machine_trust_policy": `resource "atlas_machine_trust_policy" "example" {
+  machine_id = "tf-machine-trust-policy"
+  name = "tf-machine-trust-policy"
+  kind = "github_actions"
+  audience = "tf-machine-trust-policy"
+  subject_pattern = "tf-machine-trust-policy"
+}
+`,
+	"mfa_campaign": `resource "atlas_mfa_campaign" "example" {
+  name = "tf-mfa-campaign"
+}
+`,
+	"org_role_set": `resource "atlas_org_role_set" "example" {
+  key = "tf-org-role-set"
+  name = "tf-org-role-set"
+}
+`,
+	"org_template": `resource "atlas_org_template" "example" {
+  key = "tf-org-template"
+  name = "tf-org-template"
+}
+`,
+	"rate_limit_policy": `resource "atlas_rate_limit_policy" "example" {
+  name = "tf-rate-limit-policy"
+  subject = "key"
+  limit = 1
+  window_seconds = 1
+}
+`,
+	"rate_limit_override": `resource "atlas_rate_limit_override" "example" {
+  subject_type = "tf-rate-limit-override"
+  subject_id = "tf-rate-limit-override"
+}
+`,
+	"step_up_policy": `resource "atlas_step_up_policy" "example" {
+  name = "tf-step-up-policy"
+}
+`,
+	"suppression": `resource "atlas_suppression" "example" {
+  address = "tf-suppression"
+}
+`,
+	"instance_write_budget": `resource "atlas_instance_write_budget" "example" {
+
+}
+`,
+	"connection_reconnect_settings": `resource "atlas_connection_reconnect_settings" "example" {
+
+}
+`,
+	"fga_sync": `resource "atlas_fga_sync" "example" {
+
+}
+`,
+	"user_traits_schema": `resource "atlas_user_traits_schema" "example" {
+
+}
+`,
+	"message_receiver": `resource "atlas_message_receiver" "example" {
+  provider = "tf-message-receiver"
+  secret = "tf-message-receiver"
+}
+`,
+	"messaging_settings": `resource "atlas_messaging_settings" "example" {
+
+}
+`,
+	"messaging_country_route": `resource "atlas_messaging_country_route" "example" {
+  country = "tf-messaging-country-route"
+  provider_id = "tf-messaging-country-route"
+}
+`,
+	"messaging_provider_fallback": `resource "atlas_messaging_provider_fallback" "example" {
+  channel = "tf-messaging-provider-fallback"
+  transport = "tf-messaging-provider-fallback"
+}
+`,
+	"organization_role_policy": `resource "atlas_organization_role_policy" "example" {
+  organization_id = "tf-organization-role-policy"
+}
+`,
+	"organization_seats": `resource "atlas_organization_seats" "example" {
+  organization_id = "tf-organization-seats"
+}
+`,
+	"web_bot_auth": `resource "atlas_web_bot_auth" "example" {
+
+}
+`,
+	"web_bot_auth_directory": `resource "atlas_web_bot_auth_directory" "example" {
+  directory = "tf-web-bot-auth-directory"
+  list = "allow"
+}
+`,
+	"user_legal_hold": `resource "atlas_user_legal_hold" "example" {
+  user_id = "tf-user-legal-hold"
+  reason = "tf-user-legal-hold"
+}
+`,
+	"id_app_adoption_code": `resource "atlas_id_app_adoption_code" "example" {
+  atlas_id_app_id = "tf-atlas-id-app-adoption-code"
+}
+`,
+	"messaging_push_provider": `resource "atlas_messaging_push_provider" "example" {
+  transport = "expo"
+  config    = jsonencode({ access_token = var.expo_access_token })
+}
+`,
 }

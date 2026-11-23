@@ -97,6 +97,13 @@ Optional:
   Emitted as `androidApps`. (see [below for nested
   schema](#nestedatt--native_apps--android_apps))
 
+- `unregistered` (String) — What a native client with no registered app may do:
+  `refuse`, `device_bound` or `allow`. Unset means `device_bound` on development
+  instances and `refuse` on production. Emitted as `unregistered`.
+- `unregistered_session` (Attributes) — Limits on sessions of unregistered and
+  development native apps: `absolute_ms` (Number, hard lifetime cap) and
+  `require_mfa` (Boolean). Emitted as `unregisteredSession`.
+
 <a id="nestedatt--native_apps--android_apps"></a>
 ### Nested Schema for `native_apps.android_apps`
 

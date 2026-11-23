@@ -126,6 +126,48 @@ export const manifest = [
   { t: 'billing_connect_account', item: '/v1/billing/connect/accounts/{id}', update: '', noDelete: true },
   { t: 'agent_delegation', item: '/v1/agent_delegations/{id}', update: '', revoke: '/revoke' },
 
+  // ── Surface-gap batch: native apps, hooks, aliases, PCA ────────────────────
+  { t: 'native_app', item: '/v1/native_apps/{id}', example: '  platform      = "ios"\n  bundle_id     = "com.example.app"\n  team_id       = "ABCDE12345"\n  callback_urls = ["com.example.app://auth/callback"]' },
+  { t: 'native_app_publishable_key', kind: 'single', item: '/v1/native_apps/publishable_key', noDelete: true },
+  { t: 'before_first_session_hook', kind: 'single', item: '/v1/instance/hooks/before_first_session', write: 'patch', secrets: ['signing_secret'] },
+  { t: 'permission_alias', kind: 'keyed', item: '/v1/permission_aliases/{alias}', params: { alias: 'alias' }, list: '/v1/permission_aliases', match: 'alias' },
+  { t: 'pca_approvals_settings', kind: 'single', item: '/v1/pca/approvals/settings', noDelete: true },
+  // PCA action registry and approvers. Passkey ceremonies happen outside Terraform: an approver is adopted once enrolled,
+  // a reviewer is created by its enrolment link (create: '/enrolments') and revoked on destroy.
+  { t: 'pca_action_source', item: '/v1/pca/action-registry/sources/{id}', required: ['ns', 'from', 'url'], writeOnly: ['from', 'url'] },
+  { t: 'pca_action_publisher_key', item: '/v1/pca/action-registry/publisher-keys/{kid}', idField: 'kid', update: '', noRead: true, echo: true },
+  { t: 'pca_action_namespace_pin', kind: 'keyed', item: '/v1/pca/action-registry/namespaces/{ns}/pin', params: { ns: 'ns' }, noRead: true, echo: true },
+  { t: 'pca_action_reviewer', item: '/v1/pca/action-registry/reviewers/{id}', create: '/enrolments', idField: 'reviewer_id', update: '', list: '/v1/pca/action-registry/reviewers', match: 'id' },
+  { t: 'pca_approver', kind: 'keyed', item: '/v1/pca/approvers/{id}', params: { id: 'approver_id' }, noDelete: true },
+  { t: 'pca_approver_member', kind: 'keyed', item: '/v1/pca/approvers/{id}/members/{memberId}', params: { id: 'approver_id', memberId: 'member_id' }, noRead: true, noDelete: true, echo: true, skip: ['display_name', 'status'] },
+  { t: 'pca_principal', item: '/v1/pca/principals/{principalPub}', update: '', idField: 'principal_pub' },
+
+  // ── Surface-gap batch 2: older config surfaces ─────────────────────────────
+  { t: 'machine_trust_policy', item: '/v1/machine_trust_policies/{id}' },
+  { t: 'mfa_campaign', item: '/v1/mfa_campaigns/{id}' },
+  { t: 'org_role_set', item: '/v1/org_role_sets/{id}' },
+  { t: 'org_template', item: '/v1/org_templates/{id}' },
+  { t: 'rate_limit_policy', item: '/v1/rate_limit_policies/{id}' },
+  { t: 'rate_limit_override', kind: 'keyed', item: '/v1/rate_limit_overrides/{subject_type}/{subject_id}', params: { subject_type: 'subject_type', subject_id: 'subject_id' } },
+  { t: 'step_up_policy', item: '/v1/step_up/policies/{id}' },
+  { t: 'suppression', item: '/v1/suppressions/{id}', update: '', pick: 'data0', required: ['address'], skip: ['addresses', 'data', 'has_more', 'next_cursor', 'created'] },
+  { t: 'instance_write_budget', kind: 'single', item: '/v1/instance/write_budget' },
+  { t: 'connection_reconnect_settings', kind: 'single', item: '/v1/connection_reconnect_settings', noDelete: true },
+  { t: 'fga_sync', kind: 'single', item: '/v1/fga/sync', noDelete: true },
+  { t: 'user_traits_schema', kind: 'single', item: '/v1/instance/user_traits_schema', noDelete: true },
+  { t: 'message_receiver', kind: 'keyed', item: '/v1/message_receivers/{provider}', params: { provider: 'provider' }, list: '/v1/message_receivers', match: 'provider' },
+  { t: 'messaging_settings', kind: 'single', item: '/v1/messaging/settings', noDelete: true },
+  { t: 'messaging_country_route', item: '/v1/messaging/country_routes/{country}', write: 'put', idField: 'country', update: '' },
+  { t: 'messaging_provider_fallback', item: '/v1/messaging_providers/{channel}/fallbacks/{id}', params: { channel: 'channel' } },
+  { t: 'organization_role_policy', kind: 'keyed', item: '/v1/organizations/{id}/role_policy', params: { id: 'organization_id' }, noDelete: true },
+  { t: 'organization_seats', kind: 'keyed', item: '/v1/organizations/{id}/seats', params: { id: 'organization_id' }, noDelete: true },
+  { t: 'web_bot_auth', kind: 'single', item: '/v1/web_bot_auth', noDelete: true },
+  { t: 'web_bot_auth_directory', item: '/v1/web_bot_auth/directories/{id}', update: '', echo: true },
+  { t: 'user_legal_hold', kind: 'keyed', item: '/v1/users/{id}/legal_hold', params: { id: 'user_id' }, revoke: '/release' },
+  { t: 'id_app_adoption_code', item: '/v1/platform/atlas_id_apps/{id}/adoption_codes/{codeId}', params: { id: 'atlas_id_app_id' }, update: '', kinds: { status: 'string' } },
+
+  // messaging_push_provider: hand-written spec (the push body is a oneOf the generator cannot flatten).
+
   // ── Data sources ─────────────────────────────────────────────────────────────
   { t: 'user', kind: 'dataonly', item: '/v1/users/{id}', desc: 'A user in the instance, looked up by id.' },
   { t: 'organization', kind: 'dataonly', item: '/v1/organizations/{id}', desc: 'An organization in the instance, looked up by id.' },

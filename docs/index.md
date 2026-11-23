@@ -206,6 +206,41 @@ environment.
 | [`atlas_config_snapshot`](resources/config_snapshot.md) | Save the instance's configuration as it is now, with an optional label. |
 | [`atlas_billing_connect_account`](resources/billing_connect_account.md) | Create the Stripe Connect (Express) account a user or organization is paid out to, on YOUR Stripe account. |
 | [`atlas_agent_delegation`](resources/agent_delegation.md) | Delegate authority to an agent. |
+| [`atlas_native_app`](resources/native_app.md) | Register a native app that signs users in (RFC 8252): an `ios` app (bundle_id + team_id), an `android` app (package_name + sha256_cert_fingerprints) or a `development` app for Expo Go and dev builds (allowed_users + expires_at, at most 90 days ahead; it stops working at expiry and expires_at can be extended in place). |
+| [`atlas_native_app_publishable_key`](resources/native_app_publishable_key.md) | Restrict which registered native apps may use the publishable key (an empty list means any). |
+| [`atlas_before_first_session_hook`](resources/before_first_session_hook.md) | The `before_first_session` hook: called once per user, before their first session token, so account linking can stamp `external_id` on the user. |
+| [`atlas_permission_alias`](resources/permission_alias.md) | An alias for a permission key: the alias keeps working in checks and role definitions after the permission is renamed. |
+| [`atlas_pca_approvals_settings`](resources/pca_approvals_settings.md) | Human-approval settings for agent actions: the approval channels, the default channels for approver members, the CIBA backchannel and the Slack webhook. |
+| [`atlas_pca_principal`](resources/pca_principal.md) | Enrol a principal public key, binding it to an Atlas identity (user, org or machine). |
+| [`atlas_pca_action_source`](resources/pca_action_source.md) | Track a document (an OpenAPI spec, an MCP tool list and so on) as a source of agent actions: each sync turns what it lists into drafts for review, on a schedule or on demand. |
+| [`atlas_pca_action_publisher_key`](resources/pca_action_publisher_key.md) | Pin a publisher key: action packs signed by it are accepted into the registry. |
+| [`atlas_pca_action_namespace_pin`](resources/pca_action_namespace_pin.md) | Pin a namespace to one stored version: that version is active and later publishes do not replace it. |
+| [`atlas_pca_action_reviewer`](resources/pca_action_reviewer.md) | A reviewer of agent action changes. |
+| [`atlas_pca_approver`](resources/pca_approver.md) | Settings of a passkey approver that already exists: its quorum, display name and status. |
+| [`atlas_pca_approver_member`](resources/pca_approver_member.md) | Notification channels, contact details and status of one member of an existing approver. |
+| [`atlas_machine_trust_policy`](resources/machine_trust_policy.md) | Create a trust policy: let a token from an external workload platform (GitHub Actions, Kubernetes, AWS, GCP or any OIDC issuer) be exchanged for a machine token of one machine, with no stored secret. |
+| [`atlas_mfa_campaign`](resources/mfa_campaign.md) | Start an MFA rollout campaign: ask everyone, a group, an organization or an organization role to enrol a second factor. |
+| [`atlas_org_role_set`](resources/org_role_set.md) | Create a role set. |
+| [`atlas_org_template`](resources/org_template.md) | Create an organization template: custom roles (with existing permissions), policy, role set and default role, seat limit and warning level, and metadata. |
+| [`atlas_rate_limit_policy`](resources/rate_limit_policy.md) | Create a rate-limit policy: a limit per window for one kind of subject (API key, user, organization, machine or IP). |
+| [`atlas_rate_limit_override`](resources/rate_limit_override.md) | Pin one subject (an API key, user, organization or machine of this instance, or one IP address) to a policy of its kind (policy_id) or to an inline limit (limit with window_seconds, optional burst). |
+| [`atlas_step_up_policy`](resources/step_up_policy.md) | Create a named step-up policy: how recent and how strong a re-authentication a sensitive action needs. |
+| [`atlas_suppression`](resources/suppression.md) | Add one address or up to 1000 to the suppression list. |
+| [`atlas_instance_write_budget`](resources/instance_write_budget.md) | Set the write-budget mode and any limit. |
+| [`atlas_connection_reconnect_settings`](resources/connection_reconnect_settings.md) | Replace the hosted-reconnect settings (a field left out returns to its default). |
+| [`atlas_fga_sync`](resources/fga_sync.md) | Configure the managed sync that turns organization memberships, org roles and groups into FGA tuples, so a model can say `viewer: member from organization` without mirroring anything by hand. |
+| [`atlas_user_traits_schema`](resources/user_traits_schema.md) | Store the user traits schema and/or change its enforcement. |
+| [`atlas_message_receiver`](resources/message_receiver.md) | Store the secret Atlas verifies this provider's callbacks with (your Mailgun webhook signing key, SendGrid public key, Resend webhook secret, Vonage signature secret, MessageBird signing key, or the SNS topic ARNs to accept). |
+| [`atlas_messaging_settings`](resources/messaging_settings.md) | Change messaging behaviour. |
+| [`atlas_messaging_country_route`](resources/messaging_country_route.md) | Route SMS to a country through a provider. |
+| [`atlas_messaging_provider_fallback`](resources/messaging_provider_fallback.md) | Add a fallback provider (up to 5 per channel). |
+| [`atlas_organization_role_policy`](resources/organization_role_policy.md) | Point an organization at a role set and/or give it its own default role (null clears either). |
+| [`atlas_organization_seats`](resources/organization_seats.md) | Set the seat limit (max_allowed_memberships; null = unlimited) and the warning level. |
+| [`atlas_web_bot_auth`](resources/web_bot_auth.md) | Set the allow and/or block list (each replaces its list; omit one to keep it). |
+| [`atlas_web_bot_auth_directory`](resources/web_bot_auth_directory.md) | Put one directory on the allow or block list; it leaves the other list if it was there. |
+| [`atlas_user_legal_hold`](resources/user_legal_hold.md) | Place a legal hold on a user. |
+| [`atlas_id_app_adoption_code`](resources/id_app_adoption_code.md) | Issue a one-time code that lets an instance of the account adopt this app with its own secret key. |
+| [`atlas_messaging_push_provider`](resources/messaging_push_provider.md) | The push sender used for push MFA and in-app sign-in approval: `apns_fcm` (APNS and/or FCM credentials; devices are routed by platform) or `expo` (an Expo access token). |
 
 ### More data sources
 

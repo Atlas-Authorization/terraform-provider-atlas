@@ -4,6 +4,15 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
+## 0.19.0 — 2026-11-23
+
+### Added
+
+- **`atlas_native_app`**: the native app registry as code. Platforms `ios` (bundle_id + team_id), `android` (package_name + sha256_cert_fingerprints) and `development` (allowed_users + expires_at, at most 90 days ahead; raise expires_at to extend it in place); read-only `expired`.
+- `atlas_native_app_publishable_key` (which registered apps may use the publishable key), `atlas_before_first_session_hook`, `atlas_permission_alias`, `atlas_pca_approvals_settings` and `atlas_pca_principal` (destroy disables the principal).
+- PCA action registry and approvers: `atlas_pca_action_source`, `atlas_pca_action_publisher_key` (destroy revokes it), `atlas_pca_action_namespace_pin`, `atlas_pca_action_reviewer` (create makes the reviewer and a single-use enrolment link; the passkey is enrolled outside Terraform; destroy revokes), and `atlas_pca_approver` and `atlas_pca_approver_member` (settings of an approver that already enrolled a passkey; destroy leaves it as is).
+- 23 more resources for older configuration: `atlas_machine_trust_policy`, `atlas_mfa_campaign`, `atlas_org_role_set`, `atlas_org_template`, `atlas_rate_limit_policy`, `atlas_rate_limit_override`, `atlas_step_up_policy`, `atlas_suppression`, `atlas_instance_write_budget`, `atlas_connection_reconnect_settings`, `atlas_fga_sync`, `atlas_user_traits_schema`, `atlas_message_receiver`, `atlas_messaging_settings`, `atlas_messaging_country_route`, `atlas_messaging_provider_fallback`, `atlas_messaging_push_provider`, `atlas_organization_role_policy`, `atlas_organization_seats`, `atlas_web_bot_auth`, `atlas_web_bot_auth_directory`, `atlas_user_legal_hold` (destroy releases the hold) and `atlas_id_app_adoption_code`.
+
 ## 0.18.0 — 2026-11-14
 
 ### Added

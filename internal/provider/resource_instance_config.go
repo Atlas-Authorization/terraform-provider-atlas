@@ -48,6 +48,15 @@ type instanceConfigModel struct {
 type nativeAppsModel struct {
 	AppleAppIds types.List `tfsdk:"apple_app_ids"`
 	AndroidApps types.List `tfsdk:"android_apps"`
+	// Unregistered is the policy for native clients with no registered app: refuse, device_bound or allow.
+	Unregistered        types.String `tfsdk:"unregistered"`
+	UnregisteredSession types.Object `tfsdk:"unregistered_session"`
+}
+
+// unregisteredSessionModel is `native_apps.unregistered_session`.
+type unregisteredSessionModel struct {
+	AbsoluteMs types.Int64 `tfsdk:"absolute_ms"`
+	RequireMfa types.Bool  `tfsdk:"require_mfa"`
 }
 
 // androidAppModel is one entry of `native_apps.android_apps`.
@@ -135,6 +144,26 @@ func (r *instanceConfigResource) Schema(_ context.Context, _ resource.SchemaRequ
 									Required:    true,
 									ElementType: types.StringType,
 								},
+							},
+						},
+					},
+					"unregistered": schema.StringAttribute{
+						MarkdownDescription: "What a native client with no registered app may do: `refuse`, `device_bound` " +
+							"(a refresh token bound to a device key) or `allow`. Unset means `device_bound` on development " +
+							"instances and `refuse` on production. Emitted as `unregistered`.",
+						Optional: true,
+					},
+					"unregistered_session": schema.SingleNestedAttribute{
+						MarkdownDescription: "Limits on sessions of unregistered and development native apps. Emitted as `unregisteredSession`.",
+						Optional:            true,
+						Attributes: map[string]schema.Attribute{
+							"absolute_ms": schema.Int64Attribute{
+								MarkdownDescription: "Hard cap on the session lifetime in milliseconds. Emitted as `absoluteMs`.",
+								Optional:            true,
+							},
+							"require_mfa": schema.BoolAttribute{
+								MarkdownDescription: "Withhold the refresh token until the session has passed MFA. Emitted as `requireMfa`.",
+								Optional:            true,
 							},
 						},
 					},
@@ -381,6 +410,21 @@ func nativeAppsToJSON(ctx context.Context, obj types.Object, diags *diag.Diagnos
 			})
 		}
 		out["androidApps"] = arr
+	}
+	if !na.Unregistered.IsNull() && !na.Unregistered.IsUnknown() {
+		out["unregistered"] = na.Unregistered.ValueString()
+	}
+	if !na.UnregisteredSession.IsNull() && !na.UnregisteredSession.IsUnknown() {
+		var us unregisteredSessionModel
+		diags.Append(na.UnregisteredSession.As(ctx, &us, basetypes.ObjectAsOptions{})...)
+		sess := map[string]any{}
+		if !us.AbsoluteMs.IsNull() && !us.AbsoluteMs.IsUnknown() {
+			sess["absoluteMs"] = us.AbsoluteMs.ValueInt64()
+		}
+		if !us.RequireMfa.IsNull() && !us.RequireMfa.IsUnknown() {
+			sess["requireMfa"] = us.RequireMfa.ValueBool()
+		}
+		out["unregisteredSession"] = sess
 	}
 	return out
 }
