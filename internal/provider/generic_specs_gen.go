@@ -2220,7 +2220,7 @@ func genResourceSpecs() []genSpec {
 		},
 		// /v1/message_receivers/{provider}
 		{
-			Type: "message_receiver", Kind: "keyed", Item: "/v1/message_receivers/{provider}", IDField: "id",
+			Type: "message_receiver", Kind: "keyed", Item: "/v1/message_receivers/{provider_name}", IDField: "id",
 			Write: "PUT", Update: "PUT", GetItem: false, Delete: true,
 			Pick: "", List: "/v1/message_receivers", Match: "provider", DS: false, Init: "", Revoke: "", NoRead: false,
 			Desc: "Store the secret Atlas verifies this provider's callbacks with (your Mailgun webhook signing key, SendGrid public key, Resend webhook secret, Vonage signature secret, MessageBird signing key, or the SNS topic ARNs to accept). Write-only: it is never returned. Twilio needs none (it uses the auth token of your SMS provider). Needs the `messaging:write` scope.",
