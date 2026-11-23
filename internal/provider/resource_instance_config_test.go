@@ -151,8 +151,8 @@ func TestNativeAppsToJSON(t *testing.T) {
 	})
 	androidList, _ := types.ListValue(types.ObjectType{AttrTypes: androidAppAttrTypes()}, []attr.Value{androidObj})
 	obj, _ := types.ObjectValue(nativeAppsAttrTypes(), map[string]attr.Value{
-		"apple_app_ids": appleIDs,
-		"android_apps":  androidList,
+		"apple_app_ids":        appleIDs,
+		"android_apps":         androidList,
 		"unregistered":         types.StringNull(),
 		"unregistered_session": types.ObjectNull(nativeAppsAttrTypes()["unregistered_session"].(types.ObjectType).AttrTypes),
 	})
