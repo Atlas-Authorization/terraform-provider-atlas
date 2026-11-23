@@ -541,8 +541,8 @@ var genExampleConfigs = map[string]string{
 }
 `,
 	"message_receiver": `resource "atlas_message_receiver" "example" {
-  provider = "tf-message-receiver"
-  secret = "tf-message-receiver"
+  provider_name = "mailgun"
+  secret = "example-signing-key"
 }
 `,
 	"messaging_settings": `resource "atlas_messaging_settings" "example" {

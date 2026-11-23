@@ -10,8 +10,8 @@ Backend API: `PUT /v1/message_receivers/{provider}` (create and update); no read
 
 ```hcl
 resource "atlas_message_receiver" "example" {
-  provider = "tf-message-receiver"
-  secret = "tf-message-receiver"
+  provider_name = "mailgun"
+  secret = "example-signing-key"
 }
 ```
 
@@ -19,7 +19,7 @@ resource "atlas_message_receiver" "example" {
 
 ### Required
 
-- `provider` (String) The provider this object belongs to. Changing it forces replacement.
+- `provider_name` (String) The provider this object belongs to (`provider` in the API; `provider` is reserved in Terraform). Changing it forces replacement.
 - `secret` (String, Sensitive) The `secret` field. Write-only: sent to Atlas, never returned, and not detected as drift.
 
 ### Read-Only

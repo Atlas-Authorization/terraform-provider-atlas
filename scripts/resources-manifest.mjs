@@ -155,7 +155,7 @@ export const manifest = [
   { t: 'connection_reconnect_settings', kind: 'single', item: '/v1/connection_reconnect_settings', noDelete: true },
   { t: 'fga_sync', kind: 'single', item: '/v1/fga/sync', noDelete: true },
   { t: 'user_traits_schema', kind: 'single', item: '/v1/instance/user_traits_schema', noDelete: true },
-  { t: 'message_receiver', kind: 'keyed', item: '/v1/message_receivers/{provider}', params: { provider: 'provider' }, list: '/v1/message_receivers', match: 'provider' },
+  { t: 'message_receiver', kind: 'keyed', item: '/v1/message_receivers/{provider}', params: { provider: 'provider_name' }, list: '/v1/message_receivers', match: 'provider' },
   { t: 'messaging_settings', kind: 'single', item: '/v1/messaging/settings', noDelete: true },
   { t: 'messaging_country_route', item: '/v1/messaging/country_routes/{country}', write: 'put', idField: 'country', update: '' },
   { t: 'messaging_provider_fallback', item: '/v1/messaging_providers/{channel}/fallbacks/{id}', params: { channel: 'channel' } },

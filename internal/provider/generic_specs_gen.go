@@ -2225,7 +2225,7 @@ func genResourceSpecs() []genSpec {
 			Pick: "", List: "/v1/message_receivers", Match: "provider", DS: false, Init: "", Revoke: "", NoRead: false,
 			Desc: "Store the secret Atlas verifies this provider's callbacks with (your Mailgun webhook signing key, SendGrid public key, Resend webhook secret, Vonage signature secret, MessageBird signing key, or the SNS topic ARNs to accept). Write-only: it is never returned. Twilio needs none (it uses the auth token of your SMS provider). Needs the `messaging:write` scope.",
 			Attrs: []genAttr{
-				{Name: "provider", API: "provider", Kind: "string", Req: true, Param: true, Desc: "The provider this object belongs to. Changing it forces replacement."},
+				{Name: "provider_name", API: "provider", Kind: "string", Req: true, Param: true, Desc: "The provider this object belongs to (`provider` in the API; `provider` is a reserved Terraform name). Changing it forces replacement."},
 				{Name: "secret", API: "secret", Kind: "string", Req: true, Sens: true, WriteOnly: true, Desc: "The `secret` field. Write-only: sent to Atlas, never returned, and not detected as drift."},
 				{Name: "channel", API: "channel", Kind: "string", Comp: true, Desc: "The `channel` field. One of: `email`, `sms`."},
 				{Name: "verification", API: "verification", Kind: "string", Comp: true, Desc: "`signature`: the provider signs its callbacks and a verification secret is required. `signature_or_token`: signed when a secret is set, else the URL token. `token`: the provider cannot sign; the URL carries a token derived for this instance."},
