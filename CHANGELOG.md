@@ -4,6 +4,12 @@ All notable changes to `terraform-provider-atlas` are documented here. The
 released version is set from the git tag at build time (see `.goreleaser.yml`);
 tag a release `vX.Y.Z` to match an entry below.
 
+## 0.20.0 — 2026-11-23
+
+### Added
+
+- **`atlas_end_user_api_key`**: end-user API keys for a user or organization. `credential = "key_pair"` makes a key with no shared secret: set `audience`, bring your own `public_key` (for example from `tls_private_key`, so nothing Atlas-generated lands in state) or let Atlas generate the pair, which returns a sensitive `private_key` once (it is kept in state). Computed `key_id` is the assertion `kid`. Destroy revokes the key.
+
 ## 0.19.0 — 2026-11-23
 
 ### Added

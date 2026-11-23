@@ -159,6 +159,7 @@ func handWrittenResources() []func() resource.Resource {
 		NewPolicySettingsResource,
 		NewBeforeUserCreateHookResource,
 		NewSecretKeyResource,
+		NewEndUserAPIKeyResource,
 		NewPartnerLinkResource,
 		NewOutboundPartnerLinkResource,
 		NewIntegrationResource,

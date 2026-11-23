@@ -97,3 +97,37 @@ func TestAPIError_newCodes(t *testing.T) {
 		t.Error("STEP_UP_REQUIRED")
 	}
 }
+
+func TestEndUserAPIKey_keyPairCreateKeepsPrivateKeyAndRevokes(t *testing.T) {
+	c, api := newFakeAPI(t, func(call apiCall) (int, interface{}) {
+		if call.Method == http.MethodPost && call.Path == "/v1/api_keys" {
+			return 201, map[string]interface{}{"id": "ak_kp1", "key_id": "ak_kp1", "prefix": "kp", "credential": "key_pair", "audience": "ins_1",
+				"public_key": "-----BEGIN PUBLIC KEY-----\nAAAA\n-----END PUBLIC KEY-----\n", "subject_type": "user", "subject_id": "user_1",
+				"scopes": []string{"reports:read"}, "created_at": 1, "secret": nil, "private_key": "-----BEGIN PRIVATE KEY-----\nBBBB\n-----END PRIVATE KEY-----\n"}
+		}
+		return 200, map[string]interface{}{}
+	})
+	r := NewEndUserAPIKeyResource().(*endUserAPIKeyResource)
+	configureResource(t, r, c)
+	ctx := context.Background()
+	var m endUserAPIKeyModel
+	m.Scopes = stringSliceToSet(ctx, []string{"reports:read"}, &diag.Diagnostics{})
+	m.ID, m.Name, m.Audience, m.PublicKey, m.KeyID, m.Prefix = unkS(), nullS(), unkS(), unkS(), unkS(), unkS()
+	m.SubjectType, m.SubjectID, m.Credential = strVal("user"), strVal("user_1"), strVal("key_pair")
+	m.Secret, m.PrivateKey, m.CreatedAt = unkS(), unkS(), unkI()
+	state, resp := doCreate(t, r, planFrom(t, r, m))
+	mustOK(t, "create", resp.Diagnostics.HasError(), resp.Diagnostics)
+	call := api.last(http.MethodPost, "/v1/api_keys")
+	if call.Body["credential"] != "key_pair" || call.Body["public_key"] != nil {
+		t.Errorf("create body wrong: %+v", call.Body)
+	}
+	var got endUserAPIKeyModel
+	state.Get(ctx, &got)
+	if got.PrivateKey.ValueString() == "" || !got.Secret.IsNull() || got.KeyID.ValueString() != "ak_kp1" {
+		t.Errorf("state wrong: %+v", got)
+	}
+	doDelete(t, r, state)
+	if api.count(http.MethodDelete, "/v1/api_keys/ak_kp1") != 1 {
+		t.Error("destroy must revoke the key")
+	}
+}
